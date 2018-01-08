@@ -60,27 +60,26 @@ class WordnikCog(neko.Cog):
 
         # Attempt to favour gcide and wordnet, as they have better definitions
         # imho.
-
-        front = []
-        back = []
-
-        for word in words:
-            if word.sourceDictionary in ('gcide', 'wordnet'):
-                front.append(word)
-            else:
-                back.append(word)
-
-        # Re-join.
-        words = [*front, *back]
-
-        words: typing.List[definition.Definition] = [
-            word for word in words
-            if not word.sourceDictionary.startswith('ahd')
-        ]
-
         if words is None:
             await ctx.send('I couldn\'t find a definition for that.')
         else:
+
+            front = []
+            back = []
+
+            for word in words:
+                if word.sourceDictionary in ('gcide', 'wordnet'):
+                    front.append(word)
+                else:
+                    back.append(word)
+
+            # Re-join.
+            words = [*front, *back]
+
+            words: typing.List[definition.Definition] = [
+                word for word in words
+                if not word.sourceDictionary.startswith('ahd')
+            ]
 
             # Max results to get is 100.
             max_count = min(100, len(words))
