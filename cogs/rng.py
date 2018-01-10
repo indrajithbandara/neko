@@ -26,7 +26,10 @@ class RngCog(neko.Cog):
                 raise neko.NekoCommandError('Expected two options')
             heads, tails = args
 
-        await ctx.send(random.choice((heads, tails)))
+        if heads.strip() == tails.strip():
+            await ctx.send('Seriously?')
+        else:
+            await ctx.send(random.choice((heads, tails)))
 
     @neko.command(
         name='rtd',
