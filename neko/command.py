@@ -10,11 +10,33 @@ import discord.ext.commands as commands
 
 from neko import excuses, book, strings
 
-__all__ = ['NekoCommand', 'NekoGroup', 'command', 'group']
+__all__ = ['NekoCommand', 'NekoGroup', 'command', 'group', 'NekoCommandError']
 
 
 class CommandMixin(abc.ABC):
     """Functionality to be inherited by a command or group type."""
+
+    @property
+    def qualified_aliases(self):
+        """
+        Gets a list of qualified alias names.
+        """
+        fq_names = []
+        # noinspection PyUnresolvedReferences
+        for alias in self.aliases:
+            # noinspection PyUnresolvedReferences
+            fq_names.append(f'{self.full_parent_name} {alias}'.strip())
+        return fq_names
+
+    @property
+    def qualified_names(self):
+        """
+        Gets a list of the qualified command name and any qualified alias names.
+        """
+        # noinspection PyUnresolvedReferences
+        fq_names = [self.qualified_name]
+        fq_names.extend(self.qualified_aliases)
+        return fq_names
 
     @staticmethod
     async def on_error(cog, ctx: commands.Context, error: BaseException):
@@ -26,7 +48,6 @@ class CommandMixin(abc.ABC):
             await ctx.message.add_reaction('\N{THOUGHT BALLOON}')
             return
 
-        traceback.print_exception(type(error), error, error.__traceback__)
         error = error.__cause__ if error.__cause__ else error
 
         if isinstance(error, commands.CheckFailure):
@@ -37,16 +58,21 @@ class CommandMixin(abc.ABC):
             description=strings.capitalise(excuses.get_excuse()),
             color=0xffbf00 if isinstance(error, Warning) else 0xff0000
         )
-        error_description = strings.pascal_to_space(type(error).__name__)
 
-        cog = strings.pascal_to_space(getattr(cog, 'name', str(cog)))
-        error_description += f' in {cog}: {str(error)}'
+        if isinstance(error, NekoCommandError):
+            embed.set_footer(text=str(error))
+        else:
+            # We only show info like the cog name, etc if we are not a
+            # neko command error. Likewise, we only dump a traceback if the
+            # latter holds.
+            error_description = strings.pascal_to_space(type(error).__name__)
 
-        embed.set_footer(text=error_description)
+            cog = strings.pascal_to_space(getattr(cog, 'name', str(cog)))
+            error_description += f' in {cog}: {str(error)}'
+            embed.set_footer(text=error_description)
+            traceback.print_exception(type(error), error, error.__traceback__)
 
         await ctx.send(embed=embed)
-
-        traceback.print_exception(type(error), error, error.__traceback__)
 
 
 class NekoCommand(commands.Command, CommandMixin):
@@ -118,8 +144,8 @@ def command(**kwargs) -> typing.Callable[[typing.Any], commands.Command]:
         A list of predicates that verifies if the command could be executed
         with the given :class:`.Context` as the sole parameter. If an exception
         is necessary to be thrown to signal failure, then one derived from
-        :exc:`.CommandError` should be used. Note that if the checks fail then
-        :exc:`.CheckFailure` exception is raised to the
+        :exc:`.CommandError` should be used. Note that if the checks fail
+        then :exc:`.CheckFailure` exception is raised to the
         :func:`.on_command_error` event.
     description: str
         The message prefixed into the default help command.
@@ -194,7 +220,7 @@ def group(**kwargs) -> typing.Callable[[typing.Any], commands.Group]:
         with the given :class:`.Context` as the sole parameter. If an
         exception
         is necessary to be thrown to signal failure, then one derived from
-        :exc:`.CommandError` should be used. Note that if the checks fail
+        :exc:`.NekoCommandError` should be used. Note that if the checks fail
         then
         :exc:`.CheckFailure` exception is raised to the
         :func:`.on_command_error` event.
@@ -236,3 +262,23 @@ def group(**kwargs) -> typing.Callable[[typing.Any], commands.Group]:
     """
     kwargs.setdefault('cls', NekoGroup)
     return commands.command(**kwargs)
+
+
+class NekoCommandError(RuntimeWarning):
+    """
+    Indicates an error has occurred in a command, but it is based on validation
+    of input, or calculation of a result; as opposed to an error in the code
+    itself.
+
+    This is used to flag various problems such as missing arguments in a
+    complicated argument parser, or invalid values. This is handled slightly
+    differently to any other type of error/warning in the command handler.
+    """
+    def __init__(self, msg: typing.Union[str, typing.Iterable[str]]):
+        if isinstance(msg, str):
+            self.msg = msg
+        else:
+            self.msg = ', '.join(msg)
+
+    def __str__(self):
+        return self.msg

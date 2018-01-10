@@ -38,7 +38,7 @@ class WordnikCog(neko.Cog):
 
     @neko.command(
         name='def',
-        aliases=['define', 'def', 'dfn'],
+        aliases=['define', 'dfn'],
         brief='Looks for word definitions.',
         usage='name or phrase')
     async def get_word(self, ctx, *, word: str):
