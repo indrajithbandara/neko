@@ -1,8 +1,7 @@
 [
   "cogs.unitconversion",
-  "cogs.botbits",
   "cogs.letters",
-  "cogs.owneronly",
   "cogs.apistatus",
-  "cogs.dictionaries"
+  "cogs.dictionaries",
+  "cogs.rng"
 ]

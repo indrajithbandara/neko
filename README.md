@@ -5,7 +5,7 @@ A small bot for Discord servers to provide some useful fun commands and features
 
 ### Python 3.6
 - [`Discord.py`](https://github.com/rapptz/discord.py) (rewrite)
-- `mwclient` - MediaWiki client for Python3\*.
+- `wordnik-py3` - Wordnik Python3 API wrapper.\*
 
 <small>*\* These dependencies are available directly from PyPi using the `pip` command*</small>
 
