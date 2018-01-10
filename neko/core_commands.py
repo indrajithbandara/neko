@@ -300,10 +300,9 @@ class ActivityChangerCog(neko.Cog):
             )
         )
 
-        command = random.choice(command_choice)
         return self.bot.change_presence(
             game=discord.Game(
-                name=random.choice(command_choice.qualified_names),
+                name=random.choice(random.choice(command_choice).qualified_names),
                 type=2
             )
         )
@@ -350,72 +349,6 @@ class ActivityChangerCog(neko.Cog):
             game=discord.Game(name=gateway, type=2),
             status=discord.Status.dnd
         )
-
-
-async def _git_stash_and_do(ctx, args, dont_stash=False):
-    async with ctx.channel.typing():
-        # We assume sys.argv[0] will be __main__.py.
-        # We therefore just get that path, get the dirname
-        # and go up one directory to get our working directory
-        # to call git in.
-        entry_point = os.path.dirname(sys.argv[0])
-        entry_point = os.path.join(entry_point, '..')
-
-        # We run git stash first in case there is uncommitted changes.
-        if not dont_stash:
-            await asyncio.subprocess.create_subprocess_shell(
-                'git stash',
-                cwd=entry_point,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                encoding='ascii'
-            )
-
-        result = await asyncio.create_subprocess_shell(
-            f'(git describe --all && git {args}) 2>&1',
-            cwd=entry_point,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            encoding='ascii'
-        )
-
-        if not dont_stash:
-            await asyncio.subprocess.create_subprocess_shell(
-                'git stash apply',
-                cwd=entry_point,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                encoding='ascii'
-            )
-
-        stream: asyncio.StreamReader = result.stdout
-
-        content = [await stream.read()]
-        content = b''.join(content).decode('ascii')
-
-        print(f'$ git stash && git {args} && git stash pop')
-        print(content)
-
-        # If the output is very long, paginate.
-        title = f'git {args}'
-        if len(content) > 1900:
-            pb = neko.PaginatedBook(
-                title=title,
-                prefix='```',
-                suffix='```',
-                ctx=ctx,
-                max_size=800
-            )
-            pb.add_lines(content)
-            await pb.send()
-        else:
-            await ctx.send(
-                embed=discord.Embed(
-                    title=title,
-                    description=f'```\n{content}\n```',
-                    color=0x9b2d09
-                )
-            )
 
 
 class OwnerOnlyCog(neko.Cog):
@@ -516,51 +449,8 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.send(f'Unloaded `{fqn}` successfully via '
                        f'{func.__name__} in {delta:.3}ms')
 
-    @command_grp.group(
-        name='git',
-        brief='Various version control tasks.',
-        enabled=False
-    )
-    async def git_group(self, ctx):
-        pass
-
-    @git_group.command(
-        name='pull',
-        brief='Executes `git pull`.'
-    )
-    async def git_pull(self, ctx):
-        await _git_stash_and_do(ctx, 'pull')
-
-    @git_group.command(
-        name='checkout',
-        brief='Executes `git checkout`.'
-    )
-    async def git_checkout(self, ctx, *, branch: str):
-        # Ensure all characters of "branch" are alpha-numeric, hyphens
-        # and underscores.
-        def is_valid_char(c: str):
-            return c.isalnum() or c in ('_', '-')
-
-        if not all(is_valid_char(c) for c in branch):
-            raise PermissionError('Possible code injection. Aborting.')
-
-        await _git_stash_and_do(ctx, f'checkout {branch}')
-
-    @git_group.command(
-        name='log',
-        brief='Executes `git log`.'
-    )
-    async def git_log(self, ctx):
-        """Shows the git log. Suppresses any email information."""
-        await _git_stash_and_do(
-            ctx,
-            'log -n30 --oneline',
-            dont_stash=True
-        )
-
 
 def setup(bot):
-    """Adds the help cog to the bot."""
     HelpCog.mksetup()(bot)
     ActivityChangerCog.mksetup()(bot)
     OwnerOnlyCog.mksetup()(bot)
