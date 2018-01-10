@@ -518,7 +518,8 @@ class OwnerOnlyCog(neko.Cog):
 
     @command_grp.group(
         name='git',
-        brief='Various version control tasks.'
+        brief='Various version control tasks.',
+        enabled=False
     )
     async def git_group(self, ctx):
         pass
