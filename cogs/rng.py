@@ -21,7 +21,7 @@ class RngCog(neko.Cog):
             heads = 'heads'
             tails = 'tails'
         else:
-            args = args.split(' ')
+            args = neko.parse_quotes(args)
             if len(args) != 2:
                 raise neko.NekoCommandError('Expected two options')
             heads, tails = args

@@ -8,7 +8,7 @@ import re
 __all__ = [
     'capitalise', 'pascal_to_space', 'underscore_to_space', 'pluralise',
     'remove_single_lines', 'replace_recursive', 'ellipses', 'pluralize',
-    'capitalize'
+    'capitalize', 'parse_quotes'
 ]
 
 
@@ -166,3 +166,84 @@ async def get_text_from_html(html):
         None,
         executor_call
     )
+
+
+def parse_quotes(string, quotes=None, delimit_on=None):
+    """
+    Delimits the given string using a quotation mark parser.
+    :param quotes: the quotation marks to delemit on. Defaults to single 
+            and double quotations.
+    :param delimit_on: the characters to usually separate on. Defaults 
+            to space characters
+    """
+    if not quotes:
+        quotes = {'\'', '"'}
+    elif isinstance(quotes, str):
+        quotes = {quotes}
+
+    if not delimit_on:
+        delimit_on = {' '}
+    elif isinstance(delimit_on, str):
+        delimit_on = {delimit_on}
+
+    # Holds parsed strings.
+    stack = None
+    strs = []
+    current_str = []
+
+    def empty_current():
+        """
+        Clears the current string if it is not empty, and places it in
+        the results list.
+        """
+        if current_str:
+            # Push the current string onto the strs list.
+            strs.append(''.join(current_str))
+            current_str.clear()
+
+    while string:
+        # Stores whether we have mutated the string already in this iteration.
+        has_mutated = False
+        for quote in quotes:
+            if string.startswith(f'\\{quote}'):
+                current_str.append(quote)
+                string = string[1 + len(quote):]
+                # Onto the next character.
+                has_mutated = True
+
+            # If the string starts with a quotation, and the stack is either holding
+            # the same character (thus a closing quotation), or the stack is empty
+            # (thus an opening quotation while not in existing quotations).
+            elif string.startswith(quote) and (quote == stack or stack is None):
+                if stack == quote:
+                    stack = None
+                    empty_current()
+                else:
+                    stack = quote
+
+                # Onto the next character.
+                string = string[len(quote):]
+                has_mutated = True
+
+        if has_mutated:
+            continue
+        elif stack is None:
+            for delimiter in delimit_on:
+                if string.startswith(delimiter):
+                    empty_current()
+                    has_mutated = True
+                    string = string[len(delimiter):]
+            if has_mutated:
+                continue
+        # Else, just shift the first character.
+        current_str.append(string[0])
+        string = string[1:]
+
+    # Empty the string if it is not empty.
+    empty_current()
+
+    # If the stack is not empty, we have an issue.
+    if stack is not None:
+        raise ValueError(f'Expected closing {stack} character.')
+
+    return strs
