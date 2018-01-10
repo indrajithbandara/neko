@@ -146,6 +146,9 @@ class NekoBot(commands.Bot, log.Loggable):
 
     def _load_plugins(self):
         """Loads any plugins in the plugins.json file."""
+        # Load core commands.
+        self.load_extension('neko.core_commands')
+
         for p in io.load_or_make_json('plugins.json', default=[]):
             # noinspection PyBroadException
             try:
