@@ -372,7 +372,7 @@ async def _git_stash_and_do(ctx, args, dont_stash=False):
             )
 
         result = await asyncio.create_subprocess_shell(
-            f'git describe --all && git {args}',
+            f'(git describe --all && git {args}) 2>&1',
             cwd=entry_point,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -388,10 +388,11 @@ async def _git_stash_and_do(ctx, args, dont_stash=False):
                 encoding='ascii'
             )
 
-        stream = 'stderr' if result.returncode else 'stdout'
-        stream: asyncio.StreamReader = getattr(result, stream)
+        stream: asyncio.StreamReader = result.stdout
+
         content = [await stream.read()]
         content = b''.join(content).decode('ascii')
+
         print(f'$ git stash && git {args} && git stash pop')
         print(content)
 
