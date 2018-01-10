@@ -303,8 +303,8 @@ class ActivityChangerCog(neko.Cog):
         command = random.choice(command_choice)
         return self.bot.change_presence(
             game=discord.Game(
-                name=f'for {self.bot.command_prefix}{command.qualified_name}',
-                type=3
+                name=random.choice(command_choice.qualified_names),
+                type=2
             )
         )
 
