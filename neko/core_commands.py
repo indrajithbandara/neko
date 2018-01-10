@@ -3,14 +3,12 @@ Implementation of a help command.
 """
 import asyncio
 import inspect
+import os
 import random
+import sys
+import time
 
 import discord
-import os
-
-import sys
-
-import time
 
 import neko
 
@@ -300,9 +298,13 @@ class ActivityChangerCog(neko.Cog):
             )
         )
 
+        game = random.choice(random.choice(command_choice).qualified_names)
+        game = self.bot.command_prefix + game
+
+
         return self.bot.change_presence(
             game=discord.Game(
-                name=random.choice(random.choice(command_choice).qualified_names),
+                name=game,
                 type=2
             )
         )

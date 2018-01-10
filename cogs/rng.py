@@ -10,26 +10,24 @@ class RngCog(neko.Cog):
     @neko.command(
         name='coinflip',
         aliases=['toss', 'flip'],
-        brief='Flips a coin.',
-        usage='|option1 option2')
+        brief='Flips a coin, or picks from a set of given values...',
+        usage='|option1 option2|csgo portal "team fortress 2"')
     async def toss(self, ctx, *, args=None):
         """
         Simulates a coin flip. You can specify optional replacements
         for heads and tails.
         """
         if args is None:
-            heads = 'heads'
-            tails = 'tails'
+            args = ['Heads', 'Tails']
         else:
             args = neko.parse_quotes(args)
-            if len(args) != 2:
-                raise neko.NekoCommandError('Expected two options')
-            heads, tails = args
 
-        if heads.strip() == tails.strip():
-            await ctx.send('Seriously?')
+        if len(args) <= 1:
+            await ctx.send('Come on. Like I can decide on something from that input..!')
+        elif len(set(args)) != len(args):
+            await ctx.send('Seriously? You put the same thing more than once!')
         else:
-            await ctx.send(random.choice((heads, tails)))
+            await ctx.send(random.choice(args))
 
     @neko.command(
         name='rtd',
