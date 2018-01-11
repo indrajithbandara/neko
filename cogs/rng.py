@@ -39,7 +39,7 @@ class RngCog(neko.Cog):
         """
         Optional flags:\r
         -sides x: assumes a dice has `x` sides.\r
-        -n y: rolls said dice `y` times.
+        -n y: rolls said dice `y` times (max is 20).
         """
         sides = 6
         n = 1
@@ -52,7 +52,7 @@ class RngCog(neko.Cog):
                     option = args.pop(0)
 
                     if flag == '-n':
-                        n = int(option)
+                        n = min(20, int(option))
                     else:
                         sides = int(option)
                 else:

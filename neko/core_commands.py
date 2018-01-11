@@ -454,5 +454,5 @@ class OwnerOnlyCog(neko.Cog):
 
 def setup(bot):
     HelpCog.mksetup()(bot)
-    ActivityChangerCog.mksetup()(bot)
+    # ActivityChangerCog.mksetup()(bot)
     OwnerOnlyCog.mksetup()(bot)
