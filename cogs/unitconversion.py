@@ -652,7 +652,7 @@ class AutoUnitConversionCog(neko.Cog):
 
         :param msg: the message to listen to.+
         """
-        x_rct = '\N{REGIONAL INDICATOR SYMBOL LETTER X}'
+        x_rct = '\N{PUT LITTER IN ITS PLACE SYMBOL}'
 
         await msg.add_reaction(x_rct)
         self.logger.debug('Created pagination closure react.')

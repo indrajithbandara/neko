@@ -386,12 +386,16 @@ class Book:
             book.index = -1
             await book._send_loop()
 
-        # noinspection PyProtectedMember
         @Button('\N{REGIONAL INDICATOR SYMBOL LETTER X}')
         async def close_book(b: Book, __: Page):
             # Doesn't need to do anything apart from remove the page number and
             # the reactions.
             b.decay()
+
+        @Button('\N{PUT LITTER IN ITS PLACE SYMBOL}')
+        async def close_and_delete(b: Book, __: Page):
+            await b._ctx.message.delete()
+            await b._msg.delete()
 
         return [
             first_page,
@@ -399,7 +403,8 @@ class Book:
             page_picker,
             next_page,
             last_page,
-            close_book
+            close_book,
+            close_and_delete
         ]
 
 

@@ -158,15 +158,15 @@ def pluralise(cardinality, *args, method='app'):
         if method.startswith('app'):
             singular = args[0]
             plural = args[1] if len(args) > 1 else 's'
-            replace = singular + plural
-            return replace(cardinality, singular, replace)
+            replacement = singular + plural
+            return replace(singular, replacement)
         elif method.startswith('repl'):
-            return replace(cardinality, *args)
+            return replace(*args)
         elif method.startswith('per app'):
             singular = args[0]
             plural = args[1] if len(args) > 1 else 's'
-            replace = singular + plural
-            return per_replace(singular, replace)
+            replacement = singular + plural
+            return per_replace(singular, replacement)
         elif method.startswith('per repl'):
             return per_replace(*args)
         elif method == 'th':
