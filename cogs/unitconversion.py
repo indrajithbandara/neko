@@ -607,6 +607,9 @@ class AutoUnitConversionCog(neko.Cog):
 
         if not results:
             return
+        else:
+            self.logger.debug(f'Found {len(results)} potential conversions.')
+            self.logger.debug(', '.join(map(str, results)))
 
         embed = discord.Embed(color=neko.random_color())
 
@@ -652,6 +655,7 @@ class AutoUnitConversionCog(neko.Cog):
         x_rct = '\N{REGIONAL INDICATOR SYMBOL LETTER X}'
 
         await msg.add_reaction(x_rct)
+        self.logger.debug('Created pagination closure react.')
 
         def predicate(react, user):
             return (
@@ -673,6 +677,8 @@ class AutoUnitConversionCog(neko.Cog):
         except asyncio.TimeoutError:
             # If we timeout, we just clear the reactions.
             await msg.clear_reactions()
+        finally:
+            self.logger.debug('Killed pagination closure and destroyed embed.')
 
 
 setup = AutoUnitConversionCog.mksetup()

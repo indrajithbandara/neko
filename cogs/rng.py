@@ -9,7 +9,7 @@ import neko
 class RngCog(neko.Cog):
     @neko.command(
         name='coinflip',
-        aliases=['toss', 'flip'],
+        aliases=['toss', 'flip', 'pick', 'choose'],
         brief='Flips a coin, or picks from a set of given values...',
         usage='|option1 option2|csgo portal "team fortress 2"')
     async def toss(self, ctx, *, args=None):
@@ -23,9 +23,11 @@ class RngCog(neko.Cog):
             args = neko.parse_quotes(args)
 
         if len(args) <= 1:
-            await ctx.send('Come on. Like I can decide on something from that input..!')
+            await ctx.send('Come on. Like I can decide on something from _that_'
+                           ' input..!')
         elif len(set(args)) != len(args):
-            await ctx.send('Seriously? You put the same thing more than once!')
+            await ctx.send('Seriously? You put the _same thing_ multiple times!'
+                           ' I ain\'t here to sanitise no inputs!')
         else:
             await ctx.send(random.choice(args))
 

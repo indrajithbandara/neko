@@ -2,17 +2,19 @@
 Implementation of a help command.
 """
 import asyncio
+import getpass
 import inspect
+import logging
 import os
 import random
 import sys
 import time
+import threading
 
 import discord
 
 import neko
 
-__all__ = ['HelpCog', 'ActivityChangerCog', 'setup']
 
 # Dodger blue.
 default_color = 0x1E90FF
@@ -188,7 +190,7 @@ class HelpCog(neko.Cog):
         if getattr(cmd, 'enabled', False) and can_run:
             color = default_color
         elif not can_run:
-            color = 0
+            color = 0xFFFF00
         else:
             color = 0xFF0000
 
@@ -275,20 +277,79 @@ class HelpCog(neko.Cog):
         return name
 
 
-class ActivityChangerCog(neko.Cog):
+class ActivityThread(threading.Thread, neko.Cog):
     """
     Handles updating the game every-so-often to a new message.
+
+    I have kind of ditched using Asyncio in a loop on this thread. I keep
+    getting issues with something tanking the CPU, and I am not convinced that
+    it isn't something to do with this.
+
+    The solution instead is to run a separate thread that sequentially pushes
+    events onto this thread's event queue. ``time.sleep`` will yield to another
+    process, so this should reduce overhead; albeit at the cost of an extra
+    thread.
+
+    This thread will fire and forget as soon as we have initialised this
+    cog. It will poll every 10 seconds until the bot is ready. This is messy
+    but it will use near to no resources. Each time the thread sleeps, it
+    is an opportunity for the OS scheduler to yield to another process
+    requesting CPU time.
+
+    Furthermore, the thread is a daemon, so it will automatically die when the
+    main thread or last non-daemon thread terminates.
     """
-    def __init__(self, bot: neko.NekoBot):
+    def __init__(self, bot):
         self.bot = bot
+        self.cache = {}
 
-        # Use a lock to determine if the coroutine is running or not.
-        # This is used to restart the game-displaying loop on_ready if and
-        # only if the coroutine is not already running.
-        self.running_lock = asyncio.Lock()
+        threading.Thread.__init__(
+            self,
+            name='Activity Changer Loop (daemon)',
+            daemon=True
+        )
 
-    def next_activity(self):
-        """Acts as an iterator for getting the next activity-change coro."""
+        neko.Cog.__init__(self)
+
+        # Start once ready, then just fire and forget.
+        self.start()
+
+    @property
+    def loop(self) -> asyncio.BaseEventLoop:
+        return self.bot.loop
+
+    def run(self):
+        """A hopefully thread-safe loop."""
+        # Poll every 10 seconds to see if ready.
+        self.logger.info('Waiting for bot to connect to gateway.')
+        time.sleep(10)
+        while not self.bot.is_ready() and not self.bot.is_closed():
+            self.logger.info('... ... still waiting ... ... *yawn* ... ...')
+            time.sleep(10)
+
+        self.logger.info('Connected to main thread. Bot is ready. Starting '
+                         'loop to dispatch activities NOW. For reference')
+
+        # Main loop to execute once bot is ready.
+        while not self.bot.is_closed():
+            try:
+                self.logger.debug('Creating future in main thread.')
+                f: asyncio.Future = self.loop.create_task(self.next_activity())
+
+                while not f.done() and not f.cancelled():
+                    # Wait a second or so for the result to finish.
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                return
+            except Exception:
+                pass
+            finally:
+                # Wait 30 seconds before the next execution.
+                time.sleep(30)
+
+    async def next_activity(self):
+        """Acts as an iterator for getting the next activity-change
+        coro."""
         # Get a random command, this is more fun.
         command_choice = list(
             filter(
@@ -298,59 +359,23 @@ class ActivityChangerCog(neko.Cog):
             )
         )
 
-        game = random.choice(random.choice(command_choice).qualified_names)
+        game = random.choice(
+            random.choice(command_choice).qualified_names)
         game = self.bot.command_prefix + game
 
-
-        return self.bot.change_presence(
-            game=discord.Game(
+        if game not in self.cache:
+            game = discord.Game(
                 name=game,
                 type=2
             )
-        )
+            self.cache[game.name] = game
+            self.logger.debug(f'Couldn\'t find {game.name} in cache: '
+                              f'thus, cached game {game}')
+        else:
+            self.logger.debug(f'Read cached game {game}')
+            game = self.cache[game]
 
-    async def activity_update_loop(self):
-        """Handles changing the status every 20 seconds."""
-        with await self.running_lock:
-            while True:
-                try:
-                    await self.next_activity()
-                except BaseException:
-                    pass
-                else:
-                    await asyncio.sleep(20)
-
-    async def on_ready(self):
-        """On ready, if we are not already running a loop, invoke a new one."""
-
-        # Delay on_ready for a couple of seconds to ensure the previous
-        # message had time to show.
-        await asyncio.sleep(2)
-
-        # First say "READY!" for 10 seconds.
-        await self.bot.change_presence(
-            game=discord.Game(name='READY!'),
-            status=discord.Status
-        )
-
-        await asyncio.sleep(10)
-
-        if not self.running_lock.locked():
-            asyncio.ensure_future(self.activity_update_loop())
-
-    async def on_connect(self):
-        """When we connect to Discord, show the game as listening to Gateway"""
-        try:
-            # I like random snippets of data.
-            # noinspection PyProtectedMember
-            gateway = self.bot.ws._trace[0]
-        except IndexError:
-            gateway = 'the gateway'
-
-        await self.bot.change_presence(
-            game=discord.Game(name=gateway, type=2),
-            status=discord.Status.dnd
-        )
+        await self.bot.change_presence(game=game)
 
 
 class OwnerOnlyCog(neko.Cog):
@@ -384,21 +409,17 @@ class OwnerOnlyCog(neko.Cog):
         await book.send()
 
     @command_grp.command(
-        name='stop', aliases=['restart'],
+        aliases=['stop', 'restart'],
         brief='Kills the event loop and shuts down the bot.')
     async def stop_bot(self, ctx):
         await ctx.send('Okay, will now logout.')
         await ctx.bot.logout()
 
-    @command_grp.command(
-        name='invite',
-        brief='DM\'s you a bot invite.'
-    )
+    @command_grp.command(brief='DM\'s you a bot invite.')
     async def invite(self, ctx):
         await ctx.author.send(ctx.bot.invite_url)
 
     @command_grp.command(
-        name='load',
         brief='Loads a given extension into the bot.',
         usage='extension.qualified.name'
     )
@@ -416,7 +437,6 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.send(f'Loaded `{fqn}` successfully in {delta:.3}ms')
 
     @command_grp.command(
-        name='unload',
         brief='Unloads a given extension from the bot (and any related cogs).',
         usage='extension.qualified.name|-c CogName'
     )
@@ -451,8 +471,140 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.send(f'Unloaded `{fqn}` successfully via '
                        f'{func.__name__} in {delta:.3}ms')
 
+    @command_grp.command(brief='Sets the bot client verbosity (ignores cogs).')
+    async def set_bot_verbosity(self, ctx, verbosity='INFO'):
+        """
+        Sets the logger verbosity for the bot.
+
+        Valid verbosities are: CRITICAL, DEBUG, ERROR, FATAL, NOTSET, WARN,
+        WARNING, and INFO. Note that NOTSET is not advisable, and WARN
+        is deprecated, so may become unusable in the future; use WARNING
+        instead.
+        """
+        verbosity = verbosity.upper()
+        # noinspection PyProtectedMember
+        if verbosity not in logging._nameToLevel.keys():
+            raise NameError('Invalid verbosity.')
+        else:
+            bot_logger = getattr(ctx.bot, 'logger')
+
+            if bot_logger and isinstance(bot_logger, logging.Logger):
+                ctx.bot.logger.setLevel(verbosity)
+
+            logging.getLogger('discord').setLevel(verbosity)
+            print('SET VERBOSITY TO', verbosity, file=sys.stderr)
+
+    @command_grp.command(brief='Sets the logger verbosity for a loaded cog.')
+    async def set_cog_verbosity(self, ctx, cog_name, verbosity='INFO'):
+        """
+        Sets the logger verbosity for a given cog that is assumed to be
+        loaded into the bot currently. This is an instant operation.
+
+        Parameters:\r
+        - cog_name - the name of the cog (case sensitive), or '*' for all\r
+        - verbosity - the verbosity level to set the logger to, defaults to INFO
+
+        Valid verbosities are: CRITICAL, DEBUG, ERROR, FATAL, NOTSET, WARN,
+        WARNING, and INFO. Note that NOTSET is not advisable, and WARN
+        is deprecated, so may become unusable in the future; use WARNING
+        instead.
+        """
+        verbosity = verbosity.upper()
+        # noinspection PyProtectedMember
+        if verbosity not in logging._nameToLevel.keys():
+            raise NameError('Invalid verbosity.')
+
+        if cog_name == '*':
+            for cog in ctx.bot.cogs.values():
+                logger = getattr(cog, 'logger')
+                if isinstance(logger, logging.Logger):
+                    logger.setLevel(verbosity)
+        else:
+            try:
+                cog = ctx.bot.cogs[cog_name]
+            except KeyError:
+                raise KeyError('This cog isn\'t loaded.') from None
+            else:
+                logger = getattr(cog, 'logger')
+                if logger is None or not isinstance(logger, logging.Logger):
+                    raise AttributeError(
+                        'This cog lacks a valid logger attribute.'
+                    )
+                else:
+                    logger.setLevel(verbosity)
+
+        await ctx.message.add_reaction('\N{OK HAND SIGN}')
+
+    @command_grp.command(
+        name='ping',
+        aliases=['health'],
+        brief='Literally does nothing useful other than respond and then '
+              'delete the message a few seconds later. Exists to quickly '
+              'determine if the bot is still running or not.'
+    )
+    async def ping(self, ctx):
+        await ctx.send('Pong.', delete_after=5)
+        await ctx.message.delete()
+
+    @command_grp.command(brief='Shows info about the host\'s health.')
+    async def host_health(self, ctx):
+        """Gets the host health and resource utilisation."""
+
+        if os.name == 'nt':
+            raise NotImplementedError(
+                'Here\'s a quarter, kid. Go get yourself a real '
+                'operating system.'
+            )
+
+        up_fut = asyncio.create_subprocess_exec(
+            'uptime',
+            stdout=asyncio.subprocess.PIPE,
+            encoding='ascii'
+        )
+
+        # Gets the username
+        user = getpass.getuser()
+
+        ps_fut = asyncio.create_subprocess_exec(
+            'ps', '-U', user, '-f', '-o', 'pid,comm,%cpu,%mem,cputime,start',
+            stdout=asyncio.subprocess.PIPE,
+            encoding='ascii'
+        )
+
+        up_res = await up_fut
+        ps_res = await ps_fut
+
+        up_stdout = [await up_res.stdout.read()]
+        ps_stdout = [await ps_res.stdout.read()]
+
+        up_out = b''.join(up_stdout).decode('ascii')
+        ps_out = b''.join(ps_stdout).decode('ascii')
+
+        book = neko.PaginatedBook(
+            title=up_out,
+            ctx=ctx,
+            prefix='```',
+            suffix='```'
+        )
+        book.add_lines(ps_out)
+
+        await book.send()
+
+    @command_grp.command()
+    async def list_cogs(self, ctx):
+        raise NotImplementedError
+
+    @command_grp.command()
+    async def list_extensions(self, ctx):
+        raise NotImplementedError
+
+    @command_grp.command()
+    async def list_commands(self, ctx):
+        raise NotImplementedError
+
+
 
 def setup(bot):
     HelpCog.mksetup()(bot)
-    # ActivityChangerCog.mksetup()(bot)
     OwnerOnlyCog.mksetup()(bot)
+    ActivityThread.mksetup()(bot)
