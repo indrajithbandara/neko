@@ -21,11 +21,15 @@ from .tokens import *
 # These are useful to have in the namespace.
 # Using the import like this means that `discord` is also imported!
 import discord.ext.commands.converter
+converters = discord.ext.commands.converter
 
 Paginator = discord.ext.commands.Paginator
 Context = discord.ext.commands.Context
 GroupMixin = discord.ext.commands.GroupMixin
-converters = discord.ext.commands.converter
+check = discord.ext.commands.check
+cooldown = discord.ext.commands.cooldown
+Cooldown = discord.ext.commands.Cooldown
+CooldownType = discord.ext.commands.BucketType
 
 
 __all__ = [

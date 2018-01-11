@@ -1,0 +1,113 @@
+{
+  "wait": [
+    "mewait.png",
+    "mewait2.png"
+  ],
+  "I do appreciate you": [
+    "mewappreciate.png"
+  ],
+  "*blank face*": [
+    "mewblank.png"
+  ],
+  "eww": [
+    "mewew.png"
+  ],
+  "full": [
+    "mewfull.png"
+  ],
+  "game": [
+    "mewgame.png"
+  ],
+  "gg": [
+    "mewgg.png"
+  ],
+  "goodnight": [
+    "mewgn.png"
+  ],
+  "<3": [
+    "mewheart.png",
+    "mewheart2.png",
+    "mewheart3.png"
+  ],
+  "\u2764": [
+    "mewheart.png",
+    "mewheart2.png",
+    "mewheart3.png"
+  ],
+  "hi": [
+    "mewhi.png"
+  ],
+  "hopeless": [
+    "mewhopeless.png"
+  ],
+  "sleepy": [
+    "mewsleepy.png"
+  ],
+  "donut": [
+    "mewmunch.png"
+  ],
+  "nervous": [
+    "mewnervous.png"
+  ],
+  "no": [
+    "mewno.png"
+  ],
+  "not bad": [
+    "mewnotbad.png"
+  ],
+  "owo": [
+    "mewowo.png"
+  ],
+  "*peers*": [
+    "mewpeek.png",
+    "mewpeer.png",
+    "mewhnng.png"
+  ],
+  "pervert": [
+    "mewperv.png"
+  ],
+  "*pets*": [
+    "mewpet.png"
+  ],
+  "*begs*": [
+    "mewplease.png"
+  ],
+  "*rage*": [
+    "mewrage.png"
+  ],
+  "see ya": [
+    "mewseeya.png"
+  ],
+  "*sigh*": [
+    "mewsigh.png"
+  ],
+  "*sits*": [
+    "mewsit.png"
+  ],
+  "*smiles*": [
+    "mewsmile.png",
+    "mewsmile2.png"
+  ],
+  "*smirks*": [
+    "mewsmirk.png"
+  ],
+  "*sobs*": [
+    "mewsob.png",
+    "mewsob2.png"
+  ],
+  "surprise": [
+    "mewsurprise.png"
+  ],
+  "*waiting to talk*": [
+    "mewtalk.png"
+  ],
+  "what did you say": [
+    "mewut.png"
+  ],
+  "what": [
+    "mewwhat.png"
+  ],
+  "yes": [
+    "mewyes.png"
+  ]
+}

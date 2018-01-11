@@ -2,11 +2,12 @@
 I/O operations and aliases.
 """
 
-import logging
+import inspect
 import json
+import logging
 import os
 
-__all__ = ['load_or_make_json', 'internal_open']
+__all__ = ['load_or_make_json', 'relative_to_here']
 
 
 logger = logging.getLogger(__name__)
@@ -27,18 +28,25 @@ def load_or_make_json(file, *, default=None):
         return default
 
 
-def internal_open(file_name, script, mode='r'):
+def relative_to_here(path):
     """
-    Gets a resource from the same directory as the script parameter, and
-    opens it, returning a file pointer.
-
-    This is kind of similar to Java's object.getClass().getResourceAsStream(...)
-
-    :param file_name: the file name relative to script's directory to open.
-    :param script: the script to use relative to the file name.
-    :param mode: the file mode, as used in "open". Defaults to 'r'.
-    :return: the file pointer.
+    Gets the absolute path of the path relative to the file you called this
+    function from. This works by inspecting the current stack and extracting
+    the caller module, then getting the parent directory of the caller as an
+    absolute path,
     """
-    path = os.path.join(os.path.dirname(script), file_name)
+    try:
+        frame = inspect.stack()[1]
+    except IndexError:
+        raise RuntimeError('Could not find a stack record. Interpreter has '
+                           'been shot.')
+    else:
+        module = inspect.getmodule(frame[0])
+        assert hasattr(module, '__file__'), 'No __file__ attr, whelp.'
 
-    return open(path, mode)
+        file = module.__file__
+
+        dir_name = os.path.dirname(file)
+        abs_dir_name = os.path.abspath(dir_name)
+
+        return os.path.join(abs_dir_name, path)

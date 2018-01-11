@@ -27,7 +27,8 @@ class MercatorProjection:
         If no image is given, the default mercator bitmap is used.
         """
         if map_image is None:
-            fp = neko.internal_open('res/mercator.bmp', __file__, mode='br')
+            # TODO: change.
+            # fp = neko.internal_open('res/mercator.bmp', __file__, mode='br')
             map_image: image.Image = image.open(fp)
             map_image.load()
 

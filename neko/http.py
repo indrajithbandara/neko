@@ -13,7 +13,7 @@ __all__ = ['StatusCode', 'is_success', 'HttpRequestError', 'request',
            'validate_uri']
 
 _socket: aiohttp.ClientSession = None
-_logger = log.Loggable.get_logger('neko.utils.http')
+_logger = log.Loggable.generate_logger('neko.utils.http')
 
 
 class HttpRequestError(RuntimeError):

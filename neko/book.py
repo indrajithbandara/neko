@@ -463,9 +463,13 @@ class PaginatedBook(Book):
         :param content: the string to split and add.
         :param follow_with_empty: true by default, if true it will add a blank
                 line after the content is added.
-        :return:
         """
-        for line in content.split('\n'):
+        if not hasattr(content, '__iter__'):
+            raise TypeError('Must be iterable or string (using \\n to delimit)')
+        elif isinstance(content, str):
+            content = content.split('\n')
+
+        for line in content:
             self.add_line(line)
         if follow_with_empty:
             self.add_line()

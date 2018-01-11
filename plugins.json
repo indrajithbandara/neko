@@ -3,5 +3,6 @@
   "cogs.letters",
   "cogs.apistatus",
   "cogs.dictionaries",
-  "cogs.rng"
+  "cogs.rng",
+  "cogs.mewreacts"
 ]

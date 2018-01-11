@@ -70,47 +70,126 @@ def underscore_to_space(text):
     return replace_recursive(text, '__', '_').replace('_', ' ').title()
 
 
-def __pluralise_append(cardinality, singular, pluralised='s'):
-    """Pluralises a measurement by appending "pluralised" if required."""
-    return (
-        f'{cardinality} {singular}'
-        if cardinality == 1
-        else f'{cardinality} {singular}{pluralised}'
-    )
+def pluralise(cardinality, *args, method='app'):
+    """
+    Pluralises the given measurement.
 
+    e.g.
+          pluralise(12, 'echo', 'es') => '12 echoes'
 
-def __pluralise_replace(cardinality, singular, pluralised):
-    """Pluralises by appending singular if 1 or pluralised otherwise."""
-    return f'{cardinality} {singular if cardinality == 1 else pluralised}'
+          pluralise(1, 'echo', 'es') => '1 echo'
 
+          pluralise(1, 'request', method='per append') => 'per request'
 
-def __pluralise_th(cardinality):
-    """Appends st, nd, rd, th, etc to a digit."""
-    assert cardinality >= 0, 'Not designed to work with less than 0'
-    tens = cardinality % 100
-    units = cardinality % 10
-    if tens // 10 == 1 or units > 3 or units == 0:
-        return f'{cardinality}th'
-    elif units == 1:
-        return f'{cardinality}st'
-    elif units == 2:
-        return f'{cardinality}nd'
-    elif units == 3:
-        return f'{cardinality}rd'
-    else:
-        assert False, f'Algorithm won\'t handle input {cardinality}'
+          pluralise(32, 'request', method='per append') => 'per 34 requests'
 
+    Do not rely on this in a performance-critical situation. It is slow and
+    inefficient; however, for most day-to-day occasional uses, this overhead
+    is negligible.
 
-def pluralise(cardinality, *args, method='append'):
-    """Pluralises the given measurement."""
-    if method == 'append':
-        return __pluralise_append(cardinality, *args)
-    elif method == 'replace':
-        return __pluralise_replace(cardinality, *args)
-    elif not args and method == 'th':
-        return __pluralise_th(cardinality)
-    else:
-        raise ValueError(f'Unexpected method {method} for args {args}')
+    :param cardinality: numeric value.
+    :param args: zero or more arguments, depending on the specified method.
+    :param method: the method to pluralise by.
+
+    Methods
+    -------
+    - **'app[end]'** (default)
+        args[0]: singular name (e.g. pass)
+        args[1]: plural: what to append on the end (e.g. 'es')
+
+        If cardinality == 1, the singular is used.
+        If cardinality != 1, the plural is appended to the singular.
+
+        If args[1] is not specified, it defaults to 's'.
+
+    - **'repl[ace]'**
+        args[0]: singular name (e.g. goose)
+        args[1]: plural name (e.g. geese)
+
+        If cardinality == 1, the singular is used.
+        If cardinality != 1, the plural is used.
+
+    - **'per app[end]'**
+        See 'append' for arguments and rules.
+
+        Appends "per " to the start of the result.
+
+        Additionally, if cardinality == 1, the cardinality is omitted from the
+        output.
+
+    - **'per repl[ace]'**
+        See 'replace' for arguments and rules.
+
+        Appends "per " to the start of the result.
+
+        Additionally, if cardinality == 1, the cardinality is omitted from the
+        output.
+
+    - **'th'**
+        Expects NO additional arguments.
+
+        Expects cardinality to be an integer. Will not accept a float, or a
+        negative integer.
+
+        Assuming the `x` in the following is replaced with the cardinality...
+
+        If cardinality == 0, 4, 5, 6, 10, 11, 12, 13, 14, 15, .. 20, 30, .. etc
+            return 'xth'
+        If cardinality == 1, 21, 31, .., 101, 121, .. etc
+            return 'xst'
+        If cardinality == 2, 22, 32, .. etc
+            return 'xnd'
+        If cardinality == 3, 23, 33, .. etc
+            return 'xrd'
+    """
+    # Make life a bit easier.
+    method = method.lower()
+
+    def replace(s, p):
+        return f'{cardinality} {s if cardinality == 1 else p}'
+
+    def per_replace(s, p):
+        if cardinality - 1:
+            return f'per {cardinality} {p}'
+        else:
+            return f'per {s}'
+
+    try:
+        if method.startswith('app'):
+            singular = args[0]
+            plural = args[1] if len(args) > 1 else 's'
+            replace = singular + plural
+            return replace(cardinality, singular, replace)
+        elif method.startswith('repl'):
+            return replace(cardinality, *args)
+        elif method.startswith('per app'):
+            singular = args[0]
+            plural = args[1] if len(args) > 1 else 's'
+            replace = singular + plural
+            return per_replace(singular, replace)
+        elif method.startswith('per repl'):
+            return per_replace(*args)
+        elif method == 'th':
+            if not isinstance(cardinality, int) or cardinality < 0:
+                raise TypeError('This method only works with an integer '
+                                'cardinality that is greater than or equal '
+                                'to zero.')
+            tens = cardinality % 100
+            units = cardinality % 10
+            if tens // 10 == 1 or units > 3 or units == 0:
+                return f'{cardinality}th'
+            elif units == 1:
+                return f'{cardinality}st'
+            elif units == 2:
+                return f'{cardinality}nd'
+            elif units == 3:
+                return f'{cardinality}rd'
+            else:
+                assert False, f'Algorithm won\'t handle input {cardinality}'
+        else:
+            raise ValueError(f'Unexpected method {method} for args {args}')
+    except IndexError:
+        raise TypeError('Incorrect number of arguments...')
 
 
 # Again, damn 'muricans.
@@ -211,9 +290,10 @@ def parse_quotes(string, quotes=None, delimit_on=None):
                 # Onto the next character.
                 has_mutated = True
 
-            # If the string starts with a quotation, and the stack is either holding
-            # the same character (thus a closing quotation), or the stack is empty
-            # (thus an opening quotation while not in existing quotations).
+            # If the string starts with a quotation, and the stack is either
+            # holding the same character (thus a closing quotation), or the
+            # stack is empty (thus an opening quotation while not in existing
+            #  quotations).
             elif string.startswith(quote) and (quote == stack or stack is None):
                 if stack == quote:
                     stack = None

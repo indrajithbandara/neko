@@ -164,6 +164,10 @@ class HelpCog(neko.Cog):
         usages = map(lambda u: f'• {pfx}{fqn} {u}', usages)
         usages = '\n'.join(sorted(usages))
         aliases = sorted(cmd.aliases)
+        cooldown = getattr(cmd, '_buckets')
+
+        if cooldown:
+            cooldown: neko.Cooldown = getattr(cooldown, '_cooldown')
 
         if cmd.parent:
             super_command = self.format_command_name(cmd.parent)
@@ -218,6 +222,17 @@ class HelpCog(neko.Cog):
             page.add_field(
                 name='Aliases',
                 value=', '.join(aliases)
+            )
+
+        if cooldown:
+            string = (
+                f'{neko.capitalise(cooldown.type.name)}-scoped '
+                f'{neko.pluralise(cooldown.rate, "request", method="per app")} '
+                f'for {neko.pluralise(cooldown.per, "second")}.')
+
+            page.add_field(
+                name='Cooldown policy',
+                value=string
             )
 
         if sub_commands:
@@ -328,7 +343,7 @@ class ActivityThread(threading.Thread, neko.Cog):
             time.sleep(10)
 
         self.logger.info('Connected to main thread. Bot is ready. Starting '
-                         'loop to dispatch activities NOW. For reference')
+                         'loop to dispatch activities NOW.')
 
         # Main loop to execute once bot is ready.
         while not self.bot.is_closed():
