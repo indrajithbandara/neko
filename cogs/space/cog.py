@@ -1,0 +1,3 @@
+"""
+Cog to hold commands.
+"""
