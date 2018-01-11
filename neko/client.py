@@ -161,18 +161,3 @@ class NekoBot(commands.Bot, log.Loggable):
                 traceback.print_exc()
                 self.logger.error(f'Error loading {p}; continuing without it.')
 
-    async def on_command_error(self, ctx, err):
-        """
-        Handles command errors. There is not much change from the default
-        implementation, however, CheckFailures, CommandNotFounds and
-        CommandOnCooldowns will react with emojis additionally.
-        """
-        super().on_command_error(ctx, err)
-
-        if isinstance(err, commands.CommandNotFound):
-            await ctx.message.add_reaction('\N{BLACK QUESTION MARK ORNAMENT}')
-        elif isinstance(err, commands.CheckFailure):
-            await ctx.message.add_reaction('\N{NO ENTRY SIGN}')
-        elif isinstance(err, commands.CommandOnCooldown):
-            # Todo: test.
-            await ctx.message.add_reaction('\N{ALARM CLOCK}')

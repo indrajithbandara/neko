@@ -250,6 +250,7 @@ async def get_text_from_html(html):
 def parse_quotes(string, quotes=None, delimit_on=None):
     """
     Delimits the given string using a quotation mark parser.
+    :param string: the string to parse. Go figure!
     :param quotes: the quotation marks to delemit on. Defaults to single 
             and double quotations.
     :param delimit_on: the characters to usually separate on. Defaults 

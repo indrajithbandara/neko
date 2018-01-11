@@ -39,40 +39,47 @@ class CommandMixin(abc.ABC):
         return fq_names
 
     @staticmethod
-    async def on_error(cog, ctx: commands.Context, error: BaseException):
+    async def on_error(cog, ctx: commands.Context, error):
         """Handles any errors that may occur in a command."""
+        try:
+            # For specific types of error, just react.
+            await ctx.message.add_reaction({
+                commands.CheckFailure: '\N{NO ENTRY SIGN}',
+                commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
+                commands.CommandNotFound: '\N{BLACK QUESTION MARK ORNAMENT}',
+                commands.CommandOnCooldown: '\N{ALARM CLOCK}'
+            }[type(error)])
+        except KeyError:
+            # If we haven't specified a reaction, we instead do something
+            # meaningful.
+            error = error.__cause__ if error.__cause__ else error
 
-        # If there is a missing required argument, react with a thought bubble
-        # but do nothing else.
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.message.add_reaction('\N{THOUGHT BALLOON}')
-            return
+            embed = book.Page(
+                title='Whoops! Something went wrong!',
+                description=strings.capitalise(excuses.get_excuse()),
+                color=0xffbf00 if isinstance(error, Warning) else 0xff0000
+            )
 
-        error = error.__cause__ if error.__cause__ else error
+            if isinstance(error, NekoCommandError):
+                embed.set_footer(text=str(error))
+            else:
+                # We only show info like the cog name, etc if we are not a
+                # neko command error. Likewise, we only dump a traceback if the
+                # latter holds.
+                error_description = strings.pascal_to_space(
+                    type(error).__name__
+                )
 
-        if isinstance(error, commands.CheckFailure):
-            return
+                cog = strings.pascal_to_space(getattr(cog, 'name', str(cog)))
+                error_description += f' in {cog}: {str(error)}'
+                embed.set_footer(text=error_description)
+                traceback.print_exception(
+                    type(error),
+                    error,
+                    error.__traceback__
+                )
 
-        embed = book.Page(
-            title='Whoops! Something went wrong!',
-            description=strings.capitalise(excuses.get_excuse()),
-            color=0xffbf00 if isinstance(error, Warning) else 0xff0000
-        )
-
-        if isinstance(error, NekoCommandError):
-            embed.set_footer(text=str(error))
-        else:
-            # We only show info like the cog name, etc if we are not a
-            # neko command error. Likewise, we only dump a traceback if the
-            # latter holds.
-            error_description = strings.pascal_to_space(type(error).__name__)
-
-            cog = strings.pascal_to_space(getattr(cog, 'name', str(cog)))
-            error_description += f' in {cog}: {str(error)}'
-            embed.set_footer(text=error_description)
-            traceback.print_exception(type(error), error, error.__traceback__)
-
-        await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
 
 
 class NekoCommand(commands.Command, CommandMixin):

@@ -118,7 +118,21 @@ class DiscordServiceStatusNut(neko.Cog):
             PAGE 1
             ------
 
-            Overall status, showcase API components.
+            Overall status
+            """
+            book += neko.Page(
+                title='Discord API Status',
+                description=desc,
+                color=status['color'],
+                url=status['url']
+            )
+
+            """
+            PAGE 2
+            ------
+
+            Overall status again, but with more information on showcase
+            components.
             """
             page = neko.Page(
                 title='Discord API Status',
