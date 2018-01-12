@@ -64,18 +64,22 @@ class MewReactsCog(neko.Cog):
         name='mew',
         brief='A bunch of reaction images I liked. Call with no argument for '
               'usage info.',
-        usage='|GG|Sleepy|etc')
+        usage='|GG|Sleepy|etc',
+        aliases='mewd')
     @neko.cooldown(rate=3, per=120, type=neko.CooldownType.channel)
     async def post_reaction(self, ctx: neko.Context, *, react_name=''):
         """
         Posts a reaction. Run without any commands to see a list of reactions.
+
+        Run `mewd` to destroy the calling message.
         """
         react_name = react_name.lower()
 
         # If the react is there, then send it!
         if react_name and react_name in self.images:
             try:
-                await ctx.message.delete()
+                if ctx.invoked_with == 'mewd':
+                    await ctx.message.delete()
                 file_name = random.choice(self.images[react_name])
                 await ctx.send(file=discord.File(file_name))
             except discord.Forbidden:
