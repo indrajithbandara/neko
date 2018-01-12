@@ -4,17 +4,8 @@ Rewrite of Nekozilla (a.k.a. Nekobot) in Python 3.6.
 **Why _Nekozilla_?**
 
 _Nekozilla_ is a song by _Different Heaven_ (check it out on YouTube!)
-Plus, who doesn't love Nekos? >^w^<
 
-```
-    _                ___       _.--.
-    \`.|\..----...-'`   `-._.-'_.-'`
-    /  ' `         ,       __.--'
-    )/' _/     \   `-_,   /
-    `-'" `"\_  ,_.-;_.-\_ ',     
-        _.-'_./   {_.'   ; /
-       {_.-``-'         {_/
-```
+Plus... NEKO!!! >'^w^<
 """
 
 # Expects each file to have __all__ defined
