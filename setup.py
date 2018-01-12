@@ -7,13 +7,16 @@ dependencies = [
     'aiohttp',
 
     # Used for connection pools to non-async network-based APIs
-    'requests'
+    'requests',
     
     # Wordnik integration
-    'wordnik-py3'
+    'wordnik-py3',
 
     # BeautifulSoup4 HTML parser for Python3
-    'beautifulsoup4'
+    'beautifulsoup4',
+
+    # PIL for images and stuff.
+    'pillow',
 ]
 
 with open('neko/__init__.py') as neko_init:
