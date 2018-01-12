@@ -65,7 +65,7 @@ class MewReactsCog(neko.Cog):
         brief='A bunch of reaction images I liked. Call with no argument for '
               'usage info.',
         usage='|GG|Sleepy|etc',
-        aliases='mewd')
+        aliases=['mewd'])
     @neko.cooldown(rate=3, per=120, type=neko.CooldownType.channel)
     async def post_reaction(self, ctx: neko.Context, *, react_name=''):
         """
