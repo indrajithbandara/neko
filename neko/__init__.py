@@ -1,5 +1,20 @@
 """
 Rewrite of Nekozilla (a.k.a. Nekobot) in Python 3.6.
+
+**Why _Nekozilla_?**
+
+_Nekozilla_ is a song by _Different Heaven_ (check it out on YouTube!)
+Plus, who doesn't love Nekos? >^w^<
+
+```
+    _                ___       _.--.
+    \`.|\..----...-'`   `-._.-'_.-'`
+    /  ' `         ,       __.--'
+    )/' _/     \   `-_,   /
+    `-'" `"\_  ,_.-;_.-\_ ',     
+        _.-'_./   {_.'   ; /
+       {_.-``-'         {_/
+```
 """
 
 # Expects each file to have __all__ defined
@@ -39,7 +54,7 @@ __all__ = [
 __author__ = 'Espeonageon'
 __license__ = 'MIT'
 __copyright__ = f'Copyright 2017-2018 {__author__}'
-__version__ = '2018-Jan-12'
+__version__ = '2018-Jan-12.5'
 __title__ = 'Nekozilla'
 __repo_name__ = 'neko'
 __repository__ = f'https://github.com/{__author__}/{__repo_name__}'
