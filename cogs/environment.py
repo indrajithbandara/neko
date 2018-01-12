@@ -1,5 +1,7 @@
 """
 Implementation of a help command.
+
+TODO: refactor into separate files.
 """
 import asyncio
 import getpass
@@ -617,7 +619,6 @@ class OwnerOnlyCog(neko.Cog):
     @command_grp.command()
     async def list_commands(self, ctx):
         raise NotImplementedError
-
 
 
 def setup(bot):
