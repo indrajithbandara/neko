@@ -4,5 +4,6 @@
   "cogs.apistatus",
   "cogs.dictionaries",
   "cogs.rng",
-  "cogs.mewreacts"
+  "cogs.mewreacts",
+  "cogs.environment"
 ]

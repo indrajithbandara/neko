@@ -38,7 +38,8 @@ class Button:
     """
     __slots__ = (
         'invoke',
-        'emoji'
+        'emoji',
+        'always_show'
     )
 
     def __new__(cls, emoji: str, show_if_one_page=True):
@@ -286,8 +287,8 @@ class Book:
             [await self._msg.add_reaction(b) for b in self.buttons]
         else:
             [
-                await self._msg.add_reaction(b) 
-                for b in filter(lambda _b: _b.always_show, self.buttons)
+                await self._msg.add_reaction(b.emoji)
+                for b in filter(lambda _b: _b.always_show, self.buttons.values())
             ]
 
     async def _msg_content(self):

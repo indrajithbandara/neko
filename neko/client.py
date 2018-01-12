@@ -146,9 +146,6 @@ class NekoBot(commands.Bot, log.Loggable):
 
     def _load_plugins(self):
         """Loads any plugins in the plugins.json file."""
-        # Load core commands.
-        self.load_extension('neko.core_commands')
-
         for p in io.load_or_make_json('plugins.json', default=[]):
             # noinspection PyBroadException
             try:
@@ -170,7 +167,7 @@ class NekoBot(commands.Bot, log.Loggable):
             try:
                 await ctx.message.add_reaction('\N{BLACK QUESTION MARK ORNAMENT}')
             except discord.Forbidden:
-                await ctx.send('That command doesn't exist (and I don't have '
+                await ctx.send('That command doesn\'t exist (and I don\'t have '
                                'the permissions to react to messages. Whelp!')
         else:
             super().on_command_error(ctx, error)
