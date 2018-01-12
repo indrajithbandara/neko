@@ -46,7 +46,6 @@ class CommandMixin(abc.ABC):
             await ctx.message.add_reaction({
                 commands.CheckFailure: '\N{NO ENTRY SIGN}',
                 commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
-                commands.CommandNotFound: '\N{BLACK QUESTION MARK ORNAMENT}',
                 commands.CommandOnCooldown: '\N{ALARM CLOCK}'
             }[type(error)])
         except KeyError:

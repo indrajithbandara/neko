@@ -41,14 +41,17 @@ class Button:
         'emoji'
     )
 
-    def __new__(cls, emoji: str):
+    def __new__(cls, emoji: str, show_if_one_page=True):
         """
         Generates a new button.
         :param emoji: the emoji to decorate the button with.
+        :param show_if_one_page: defaults to True. If False, then the button
+                is only displayed if more than one page is present in the
+                pagination.
         :return: a decorator for a coroutine describing what to do when
-                 the button is clicked. The first parameter is the parent
-                 book object, the second is the current page, which is an
-                 embed.
+                the button is clicked. The first parameter is the parent
+                book object, the second is the current page, which is an
+                embed.
         """
         if len(emoji) != 1:
             raise ValueError('Emoji must be a single character.')
@@ -61,6 +64,7 @@ class Button:
 
                     setattr(btn, 'emoji', emoji)
                     setattr(btn, 'invoke', coro)
+                    setattr(btn, 'always_show', show_if_one_page)
 
                     return btn
 
@@ -251,14 +255,9 @@ class Book:
             msg = await self._ctx.send('Loading pagination...')
             setattr(self, '_msg', msg)
 
-            if len(self) > 1:
-                ensure_future(self._reset_buttons())
+            ensure_future(self._reset_buttons())
 
         ensure_future(self._update_page())
-
-        if len(self) <= 1:
-            # Don't bother paginating.
-            return
 
         try:
             react, member = await self._ctx.bot.wait_for(
@@ -283,7 +282,13 @@ class Book:
         """
         await self._msg.clear_reactions()
         # Must await to ensure correct ordering.
-        [await self._msg.add_reaction(b) for b in self.buttons]
+        if len(self) > 1:
+            [await self._msg.add_reaction(b) for b in self.buttons]
+        else:
+            [
+                await self._msg.add_reaction(b) 
+                for b in filter(lambda _b: _b.always_show, self.buttons)
+            ]
 
     async def _msg_content(self):
         """
@@ -323,19 +328,22 @@ class Book:
          >  - Increments the page number.
         >>| - Goes to the last page.
          X  - Kills the pagination.
+        Bin - Kills the embed and original message.
         """
 
-        @Button('\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}')
+        @Button(
+            '\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', 
+            False)
         async def first_page(book: Book, __: Page):
             book.index = 0
             await book._send_loop()
 
-        @Button('\N{BLACK LEFT-POINTING TRIANGLE}')
+        @Button('\N{BLACK LEFT-POINTING TRIANGLE}', False)
         async def previous_page(book: Book, __: Page):
             book.index -= 1
             await book._send_loop()
 
-        @Button('\N{INPUT SYMBOL FOR NUMBERS}')
+        @Button('\N{INPUT SYMBOL FOR NUMBERS}', False)
         async def page_picker(book: Book, __: Page):
             prompt = await book._ctx.send(
                 'Please enter a page number/offset to go to.'
@@ -376,12 +384,12 @@ class Book:
             finally:
                 await book._send_loop()
 
-        @Button('\N{BLACK RIGHT-POINTING TRIANGLE}')
+        @Button('\N{BLACK RIGHT-POINTING TRIANGLE}', False)
         async def next_page(book: Book, __: Page):
             book.index += 1
             await book._send_loop()
 
-        @Button('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}')
+        @Button('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', False)
         async def last_page(book: Book, __: Page):
             book.index = -1
             await book._send_loop()

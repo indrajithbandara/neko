@@ -552,7 +552,6 @@ class OwnerOnlyCog(neko.Cog):
 
     @command_grp.command(
         name='ping',
-        aliases=['health'],
         brief='Literally does nothing useful other than respond and then '
               'delete the message a few seconds later. Exists to quickly '
               'determine if the bot is still running or not.'
@@ -561,7 +560,9 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.send('Pong.', delete_after=5)
         await ctx.message.delete()
 
-    @command_grp.command(brief='Shows info about the host\'s health.')
+    @command_grp.command(
+        aliases=['health'],
+        brief='Shows info about the host\'s health.')
     async def host_health(self, ctx):
         """Gets the host health and resource utilisation."""
 
