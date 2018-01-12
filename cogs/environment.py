@@ -608,15 +608,15 @@ class OwnerOnlyCog(neko.Cog):
 
         await book.send()
 
-    @command_grp.command()
+    @command_grp.command(enabled=False)
     async def list_cogs(self, ctx):
         raise NotImplementedError
 
-    @command_grp.command()
+    @command_grp.command(enabled=False)
     async def list_extensions(self, ctx):
         raise NotImplementedError
 
-    @command_grp.command()
+    @command_grp.command(enabled=False)
     async def list_commands(self, ctx):
         raise NotImplementedError
 

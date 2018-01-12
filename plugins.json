@@ -5,5 +5,6 @@
   "cogs.dictionaries",
   "cogs.rng",
   "cogs.mewreacts",
-  "cogs.environment"
+  "cogs.environment",
+  "cogs.space"
 ]
