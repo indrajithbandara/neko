@@ -652,20 +652,22 @@ class AutoUnitConversionCog(neko.Cog):
 
         :param msg: the message to listen to.+
         """
-        x_rct = '\N{PUT LITTER IN ITS PLACE SYMBOL}'
+        delete_rct = '\N{PUT LITTER IN ITS PLACE SYMBOL}'
+        close_rct = '\N{SQUARED OK}'
 
-        await msg.add_reaction(x_rct)
-        self.logger.debug('Created pagination closure react.')
+        await msg.add_reaction(close_rct)
+        await msg.add_reaction(delete_rct)
+        self.logger.debug('Created pagination reacts.')
 
-        def predicate(react, user):
+        def predicate(r, u):
             return (
-                user.id != self.bot.user.id and
-                react.message.id == msg.id and
-                react.emoji == x_rct
+                u.id != self.bot.user.id and
+                r.message.id == msg.id and
+                (r.emoji == delete_rct or r.emoji == close_rct)
             )
 
         try:
-            await self.bot.wait_for(
+            react, _ = await self.bot.wait_for(
                 'reaction_add',
                 check=predicate,
                 # Timeout is 5 minutes.
@@ -673,12 +675,15 @@ class AutoUnitConversionCog(neko.Cog):
             )
 
             # If we get here, someone requested to close the conversion.
-            await msg.delete()
+            if react.emoji == delete_rct:
+                await msg.delete()
+            else:
+                await msg.clear_reactions()
         except asyncio.TimeoutError:
             # If we timeout, we just clear the reactions.
             await msg.clear_reactions()
         finally:
-            self.logger.debug('Killed pagination closure and destroyed embed.')
+            self.logger.debug('Finished pagination element.')
 
 
 setup = AutoUnitConversionCog.mksetup()

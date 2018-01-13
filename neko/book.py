@@ -108,7 +108,7 @@ class Book:
         if buttons is None:
             buttons = self.generate_buttons()
 
-        self.buttons = {}
+        self.buttons: typing.Dict[str, Button] = {}
 
         for button in buttons:
             if not isinstance(button, Button):
@@ -117,6 +117,16 @@ class Book:
                 self.buttons[button.emoji] = button
 
         self._ctx = ctx
+
+    @property
+    def context_invoked_from(self) -> commands.Context:
+        """Gets the context we were invoked from."""
+        return self._ctx
+
+    @property
+    def response_message(self) -> typing.Optional[discord.Message]:
+        """Gets the response message we sent."""
+        return self._msg
 
     @property
     def index(self):
@@ -261,12 +271,15 @@ class Book:
         ensure_future(self._update_page())
 
         try:
+            def check(_react, _user):
+                return (_react.emoji in self.buttons.keys()
+                        and _react.message.id == self._msg.id
+                        and _user.id == self._ctx.author.id)
+
             react, member = await self._ctx.bot.wait_for(
                 'reaction_add',
                 timeout=self.timeout,
-                check=lambda r, u: r.emoji in self.buttons.keys()
-                                   and r.message.id == self._msg.id
-                                   and u.id == self._ctx.author.id
+                check=check
             )
 
             ensure_future(self._msg.remove_reaction(react.emoji, member))
@@ -284,12 +297,11 @@ class Book:
         await self._msg.clear_reactions()
         # Must await to ensure correct ordering.
         if len(self) > 1:
-            [await self._msg.add_reaction(b) for b in self.buttons]
+            [await self._msg.add_reaction(btn) for btn in self.buttons]
         else:
-            [
-                await self._msg.add_reaction(b.emoji)
-                for b in filter(lambda _b: _b.always_show, self.buttons.values())
-            ]
+            for emoji, btn in self.buttons.items():
+                if btn.always_show:
+                    await self._msg.add_reaction(emoji)
 
     async def _msg_content(self):
         """
@@ -351,12 +363,18 @@ class Book:
             )
 
             try:
+                def check(message):
+                    ctx = book.context_invoked_from
+                    return (
+                        message.channel == ctx.channel and
+                        message.author.id == ctx.author.id
+                    )
+
                 while True:
                     reply = await book._ctx.bot.wait_for(
                         'message',
                         timeout=30,
-                        check=lambda m: m.channel == book._ctx.channel and
-                                        m.author.id == book._ctx.author.id
+                        check=check
                     )
                     try:
                         await reply.delete()
@@ -390,12 +408,13 @@ class Book:
             book.index += 1
             await book._send_loop()
 
-        @Button('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', False)
+        @Button('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}',
+                False)
         async def last_page(book: Book, __: Page):
             book.index = -1
             await book._send_loop()
 
-        @Button('\N{REGIONAL INDICATOR SYMBOL LETTER X}')
+        @Button('\N{SQUARED OK}')
         async def close_book(b: Book, __: Page):
             # Doesn't need to do anything apart from remove the page number and
             # the reactions.
@@ -403,8 +422,8 @@ class Book:
 
         @Button('\N{PUT LITTER IN ITS PLACE SYMBOL}')
         async def close_and_delete(b: Book, __: Page):
-            await b._ctx.message.delete()
-            await b._msg.delete()
+            await b.context_invoked_from.message.delete()
+            await b.response_message.delete()
 
         return [
             first_page,
