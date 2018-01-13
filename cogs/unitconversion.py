@@ -573,7 +573,7 @@ def _measurement_to_string(measurement, should_round=True):
     rounded = round(measurement.magnitude, 2) \
         if should_round else measurement.magnitude
 
-    return f'{rounded:g} {measurement.alias}\n'
+    return f'{rounded:g} {measurement.alias}'
 
 
 class AutoUnitConversionCog(neko.Cog):
@@ -630,11 +630,14 @@ class AutoUnitConversionCog(neko.Cog):
                 for c in conversions:
                     # If magnitude is less than 10^-6 or greater
                     # than 10^7, put it in standard form.
-                    conversions_str += _measurement_to_string(c, should_round)
+                    line = _measurement_to_string(c, should_round)
+                    if not line.startswith('0 '):
+                        conversions_str += f'{line}\n'
 
                 fw = _measurement_to_string(input_val, False)
 
-            embed.add_field(name=fw, value=conversions_str)
+            if conversions_str:
+                embed.add_field(name=fw, value=conversions_str)
 
         t = f'Matching and all conversions took about {round(runtime, 3)} ms'
 
