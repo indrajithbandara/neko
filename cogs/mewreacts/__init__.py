@@ -93,7 +93,7 @@ class MewReactsCog(neko.Cog):
         # list the reacts available.
         else:
             book = neko.PaginatedBook(title='Available reactions', ctx=ctx)
-            book.add_lines(map(lambda n: f'- `{n}`', sorted(self.images)))
+            book.add_line(', '.join(map(lambda n: f'`{n}`', sorted(self.images))))
             await book.send()
 
             # Reset the cool down.
