@@ -6,6 +6,14 @@ import PIL.ImageDraw as draw
 import neko
 
 
+__log = neko.Loggable.generate_logger(__name__)
+__log.info('Loading small mercator projection')
+default_map_image = image.open(
+    neko.relative_to_here('res/mercator-small.png')
+)
+__log.info('Done ^-^')
+
+
 class MapCoordinate(enum.Enum):
     long_lat = enum.auto()
     xy = enum.auto()
@@ -27,11 +35,7 @@ class MercatorProjection:
         If no image is given, the default mercator bitmap is used.
         """
         if map_image is None:
-            # TODO: change.
-            map_image: image.Image = image.open(
-                neko.relative_to_here('res/mercator-small.png')
-            )
-            map_image.load()
+            map_image = default_map_image.copy()
 
         self.image = map_image
         self.ox, self.oy = map_image.width / 2, map_image.height / 2
