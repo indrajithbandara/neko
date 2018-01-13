@@ -28,7 +28,9 @@ class MercatorProjection:
         """
         if map_image is None:
             # TODO: change.
-            map_image: image.Image = image.open(neko.load_or_make_json(x))
+            map_image: image.Image = image.open(
+                neko.relative_to_here('res/mercator-small.png')
+            )
             map_image.load()
 
         self.image = map_image

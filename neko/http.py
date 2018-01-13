@@ -26,7 +26,8 @@ class HttpRequestError(RuntimeError):
         return str(self.status)
 
 
-async def request(method, url, dont_validate=False, **kwargs):
+async def request(method, url, dont_validate=False, **kwargs) \
+        -> aiohttp.ClientResponse:
     """
     Performs an HTTP request asynchronously. Check aiohttp.request
     for a list of all flags. This caches the connection in a pool.
