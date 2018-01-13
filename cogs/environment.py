@@ -227,10 +227,14 @@ class HelpCog(neko.Cog):
             )
 
         if cooldown:
+            timeout = cooldown.per
+            if timeout.is_integer():
+                timeout = int(timeout)
+
             string = (
                 f'{neko.capitalise(cooldown.type.name)}-scoped '
                 f'{neko.pluralise(cooldown.rate, "request", method="per app")} '
-                f'for {neko.pluralise(cooldown.per, "second")}.')
+                f'with timeout of {neko.pluralise(timeout, "second")}.')
 
             page.add_field(
                 name='Cooldown policy',

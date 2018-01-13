@@ -53,52 +53,54 @@ class SpaceCog(neko.Cog):
         # Seek back to the start
         bytesio.seek(0)
 
-    @neko.command(name='iss', brief='Shows you where the ISS is')
+    @neko.command(name='iss', brief='Shows you where the ISS is.')
+    @neko.cooldown(1, 5 * 60, neko.CooldownType.guild)
     async def find_the_iss(self, ctx):
         """
         A very crappy and slow command to show you the ISS current location.
         """
 
         with ctx.channel.typing():
-            res = await neko.request(
-                'GET',
-                'https://api.wheretheiss.at/v1/satellites/25544'
-            )
-
-            data = await res.json()
-            assert isinstance(data, dict), 'I...I don\'t understand...'
-
-            long = data['longitude']
-            lat = data['latitude']
-            time = datetime.datetime.fromtimestamp(data['timestamp'])
-            altitude = data['altitude']
-            velocity = data['velocity']
-
-            is_day = data['visibility'] == 'daylight'
-
-            desc = '\n'.join([
-                f'**Longitude**: {long:.3f} °E',
-                f'**Latitude**: {abs(lat):.3f} °{"N" if lat >= 0 else "S"}',
-                f'**Altitude**: {altitude:.3f} km',
-                f'**Velocity**: {velocity:.3f} km/h',
-                f'**Timestamp**: {time} UTC'
-            ])
-
-            embed = neko.Page(
-                title='International space station location',
-                description=desc,
-                color=0xFFFF00 if is_day else 0x0D293B,
-                url='http://www.esa.int/Our_Activities/Human_Spaceflight'
-                    '/International_Space_Station'
-                    '/Where_is_the_International_Space_Station '
-            )
-
-            embed.set_footer(text='Data provided by whereistheiss.at')
-
             # Plot the first point
             with io.BytesIO() as b:
-                await self.plot(data['latitude'], data['longitude'], b)
+                res = await neko.request(
+                    'GET',
+                    'https://api.wheretheiss.at/v1/satellites/25544'
+                )
 
+                data = await res.json()
+                image_fut = self.plot(data['latitude'], data['longitude'], b)
+
+                assert isinstance(data, dict), 'I...I don\'t understand...'
+
+                long = data['longitude']
+                lat = data['latitude']
+                time = datetime.datetime.fromtimestamp(data['timestamp'])
+                altitude = data['altitude']
+                velocity = data['velocity']
+
+                is_day = data['visibility'] == 'daylight'
+
+                desc = '\n'.join([
+                    f'**Longitude**: {long:.3f} °E',
+                    f'**Latitude**: {abs(lat):.3f} °{"N" if lat >= 0 else "S"}',
+                    f'**Altitude**: {altitude:.3f} km',
+                    f'**Velocity**: {velocity:.3f} km/h',
+                    f'**Timestamp**: {time} UTC'
+                ])
+
+                embed = neko.Page(
+                    title='International space station location',
+                    description=desc,
+                    color=0xFFFF00 if is_day else 0x0D293B,
+                    url='http://www.esa.int/Our_Activities/Human_Spaceflight'
+                        '/International_Space_Station'
+                        '/Where_is_the_International_Space_Station '
+                )
+
+                embed.set_footer(text='Data provided by whereistheiss.at')
+
+                await image_fut
                 file = discord.File(b, 'iss.png')
 
                 await ctx.send(file=file, embed=embed)
