@@ -7,5 +7,6 @@
   "cogs.mewreacts",
   "cogs.environment",
   "cogs.space",
-  "cogs.uncategorised"
+  "cogs.uncategorised",
+  "cogs.tags"
 ]

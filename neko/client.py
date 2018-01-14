@@ -1,11 +1,15 @@
 """
 Implementation of discord.ext.commands.Bot.
 """
+import atexit
 import logging
 import os
 import signal
 import time
 import traceback
+
+import asyncio
+import asyncpg
 
 import discord
 import discord.ext.commands as commands
@@ -77,6 +81,15 @@ class NekoBot(commands.Bot, log.Loggable):
             owner_id=owner_id,
         )
 
+        self.__db_conf = common.get_or_die(config, 'database')
+
+        async def make_pool():
+            self.logger.info('Creating postgres pool')
+            self.postgres_pool = await asyncpg.create_pool(**self.__db_conf)
+            self.logger.info('Successfully created pool')
+
+        self.postgres_pool = asyncio.ensure_future(make_pool())
+
         # Remove the injected help command.
         self.remove_command('help')
 
@@ -85,6 +98,8 @@ class NekoBot(commands.Bot, log.Loggable):
         self._required_perms = 0
         self._load_plugins()
         self.logger.info(f'Add me to a guild at {self.invite_url}')
+
+        # Execure the database checks when ready.
 
     async def start(self):
         """Starts the bot asynchronously."""
@@ -114,7 +129,12 @@ class NekoBot(commands.Bot, log.Loggable):
         """
         Logs out of the discord session.
         """
-        self.logger.info('Asked to log-out. See-ya!')
+        self.logger.info('Asked to log-out.')
+
+        # noinspection PyProtectedMember
+        if self.postgres_pool._initialized:
+            self.logger.info('Closing database connection.')
+            await self.postgres_pool.close()
         await super().logout()
 
     def add_cog(self, cog):
@@ -165,10 +185,30 @@ class NekoBot(commands.Bot, log.Loggable):
         """
         if isinstance(error, commands.CommandNotFound):
             try:
-                await ctx.message.add_reaction('\N{BLACK QUESTION MARK ORNAMENT}')
+                await ctx.message.add_reaction(
+                    '\N{BLACK QUESTION MARK ORNAMENT}'
+                )
             except discord.Forbidden:
                 await ctx.send('That command doesn\'t exist (and I don\'t have '
                                'the permissions to react to messages. Whelp!')
         else:
             super().on_command_error(ctx, error)
 
+    async def ensure_db_setup(self):
+        """Ensures the nekozilla schema exists."""
+        async with self.postgres_pool as pool:
+            async with pool.acquire() as conn:
+                conn.execute('''
+                SET search_path TO public;
+                
+                DO $$
+                    IF NOT EXISTS(
+                        SELECT schema_name FROM information_schema.schemata
+                        WHERE schema_name = 'nekozilla'
+                    )
+                    THEN 
+                        EXECUTE 'CREATE SCHEMA nekozilla';
+                    END IF;
+                END
+                $$;
+                ''')

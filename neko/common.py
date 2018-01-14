@@ -13,7 +13,7 @@ from neko import strings
 
 __all__ = [
     'find', 'async_find', 'get_or_die', 'is_coroutine', 'python_extensions',
-    'random_color', 'random_colour', 'between', 'json_types', 'no_block'
+    'random_color', 'random_colour', 'between', 'json_types', 'no_block',
 ]
 
 # Valid file extensions for python scripts, compiled binaries, archives,

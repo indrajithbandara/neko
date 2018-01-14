@@ -6,6 +6,9 @@ dependencies = [
     # For async http requests
     'aiohttp',
 
+    # Asyncio PostgreSQL API wrapper
+    'asyncpg',
+
     # Used for connection pools to non-async network-based APIs
     'requests',
     

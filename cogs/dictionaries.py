@@ -198,7 +198,6 @@ class DictionaryCog(neko.Cog):
 
             await book.send()
 
-    @staticmethod
     def __ud_check(ctx):
         """
         We don't want this to be run in the normal chat, but a server I am on
