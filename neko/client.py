@@ -88,7 +88,8 @@ class NekoBot(commands.Bot, log.Loggable):
             self.postgres_pool = await asyncpg.create_pool(**self.__db_conf)
             self.logger.info('Successfully created pool')
 
-        self.postgres_pool = asyncio.ensure_future(make_pool())
+        self.postgres_pool: asyncpg.pool.Pool = None
+        asyncio.ensure_future(make_pool())
 
         # Remove the injected help command.
         self.remove_command('help')

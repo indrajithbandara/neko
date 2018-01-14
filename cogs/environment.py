@@ -22,6 +22,22 @@ import neko
 default_color = 0x1E90FF
 
 
+async def proper_can_run(cmd, ctx):
+    """
+    Apparently if you are checking for bot ownership, it
+    raises an error instead of returning false. This shits
+    across all the code I have written, and is entirely
+    illogical in my eyes, but whatever.
+    """
+    try:
+        # noinspection PyUnresolvedReferences
+        assert await cmd.can_run(ctx)
+    except BaseException:
+        return False
+    else:
+        return True
+
+
 class HelpCog(neko.Cog):
     """Provides the inner methods with access to bot directly."""
 
@@ -133,13 +149,23 @@ class HelpCog(neko.Cog):
         is_bot_owner = await self.bot.is_owner(ctx.author)
 
         cmds = sorted(self.bot.commands, key=lambda c: c.name)
-        cmds = [self.format_command_name(cmd)
+        cmds = [await self.format_command_name(cmd, ctx)
                 for cmd in cmds
                 if is_bot_owner or not cmd.hidden]
 
         page.add_field(
             name='Available commands',
             value=', '.join(cmds),
+            inline=False
+        )
+
+        page.add_field(
+            name='Notations used in this help utility',
+            value='- ~~strike~~ - this command is disabled, or cannot be run '
+                  'by your user, or in the current location.\n'
+                  '- _italics_ - this command is usually hidden from the main '
+                  'list.\n'
+                  '- starred\* - this command has sub-commands defined.',
             inline=False
         )
 
@@ -159,11 +185,11 @@ class HelpCog(neko.Cog):
         :return: a book page.
         """
         pfx = self.bot.command_prefix
-        fqn = cmd.qualified_name
-        brief = f'**{fqn}**\n{cmd.brief if cmd.brief else ""}'
+        fqn = await self.format_command_name(cmd, ctx, is_full=True)
+        brief = cmd.brief if cmd.brief else 'Whelp! No info here!'
         doc_str = neko.remove_single_lines(cmd.help)
         usages = cmd.usage.split('|') if cmd.usage else ''
-        usages = map(lambda u: f'• {pfx}{fqn} {u}', usages)
+        usages = map(lambda u: f'• {pfx}{cmd.qualified_name} {u}', usages)
         usages = '\n'.join(sorted(usages))
         aliases = sorted(cmd.aliases)
         cooldown = getattr(cmd, '_buckets')
@@ -172,23 +198,24 @@ class HelpCog(neko.Cog):
             cooldown: neko.Cooldown = getattr(cooldown, '_cooldown')
 
         if cmd.parent:
-            super_command = self.format_command_name(cmd.parent)
+            super_command = await self.format_command_name(cmd.parent, ctx)
         else:
             super_command = None
 
         # noinspection PyUnresolvedReferences
-        can_run = await cmd.can_run(ctx)
+        can_run = await proper_can_run(cmd, ctx)
 
         if isinstance(cmd, neko.GroupMixin):
-            def sub_cmd_map(c):
-                c = self.format_command_name(c)
+            async def sub_cmd_map(c):
+                c = await self.format_command_name(c, ctx, is_full=True)
                 c = f'• {c}'
                 return c
 
             # Cast to a set to prevent duplicates for aliases. Hoping this
             # fixes #9 again.
             # noinspection PyUnresolvedReferences
-            sub_commands = map(sub_cmd_map, set(cmd.walk_commands()))
+            sub_commands = cmd.walk_commands()
+            sub_commands = [await sub_cmd_map(c) for c in sub_commands]
             sub_commands = sorted(sub_commands)
         else:
             sub_commands = []
@@ -201,14 +228,14 @@ class HelpCog(neko.Cog):
             color = 0xFF0000
 
         page = neko.Page(
-            title=f'Command documentation',
+            title=await self.format_command_name(cmd, ctx, is_full=True),
             description=brief,
             color=color
         )
 
         if doc_str:
             page.add_field(
-                name='Description',
+                name='More info',
                 value=doc_str,
                 inline=False
             )
@@ -255,19 +282,21 @@ class HelpCog(neko.Cog):
 
         if not can_run and cmd.enabled:
             page.set_footer(
-                text='You do not hve permission to run the command here.'
+                text='You do not hve permission to run the command here... '
+                     'Sorry!'
             )
         elif not cmd.enabled:
             page.set_footer(
-                text='This command has been disabled globally.'
+                text='This command has been disabled globally by the dev.'
             )
 
         return page
 
     @staticmethod
-    def format_command_name(cmd: neko.NekoCommand,
-                            *,
-                            is_full=False) -> str:
+    async def format_command_name(cmd: neko.NekoCommand,
+                                  ctx,
+                                  *,
+                                  is_full=False) -> str:
         """
         Formats the given command using it's name, in markdown.
 
@@ -278,12 +307,16 @@ class HelpCog(neko.Cog):
         If the command is hidden, it is displayed in italics.
 
         :param cmd: the command to format.
+        :param ctx: the command context.
         :param is_full: defaults to false. If true, the parent command is
                     prepended to the returned string first.
         """
-        name = cmd.name
+        if is_full:
+            name = f'{cmd.full_parent_name} {cmd.name}'.strip()
+        else:
+            name = cmd.name
 
-        if not cmd.enabled:
+        if not cmd.enabled or not await proper_can_run(cmd, ctx):
             name = f'~~{name}~~'
 
         if cmd.hidden:
@@ -291,9 +324,6 @@ class HelpCog(neko.Cog):
 
         if isinstance(cmd, neko.GroupMixin) and getattr(cmd, 'commands'):
             name = f'{name}\*'
-
-        if is_full:
-            name = f'{cmd.full_parent_name} {name}'.strip()
 
         return name
 

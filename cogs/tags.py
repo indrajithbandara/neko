@@ -1,82 +1,175 @@
 """
 Tag implementation using PostgreSQL backend for storage and management.
 """
+import typing
+
+import discord.ext.commands as commands
+
 import neko
 
-# Creates the tables we need.
-_create_tables = '''
-    CREATE TABLE IF NOT EXISTS local_tags (
-      -- Tag names must be unique, so might as well
-      -- use this for the PK.
-      tag_name     VARCHAR(30)    PRIMARY KEY
-                                  CONSTRAINT not_whitespace_name CHECK (
-                                    TRIM(tag_name) <> ''
-                                  ),
-      -- Snowflake
-      tag_author   BIGINT         NOT NULL,
-    
-      -- Snowflake
-      tag_guild    BIGINT         NOT NULL,
-      
-      -- Tag content. Allow up to 1800 characters.
-      tag_content  VARCHAR(1800)  CONSTRAINT not_whitespace_cont CHECK (
-                                    TRIM(tag_content) <> ''
-                                  )
-    );
-    
-    CREATE TABLE IF NOT EXISTS global_tags (
-      -- Tag names must be unique, so might as well
-      -- use this for the PK.
-      tag_name     VARCHAR(30)    PRIMARY KEY
-                                  CONSTRAINT not_whitespace_name CHECK (
-                                    TRIM(tag_name) <> ''
-                                  ),
-      -- Snowflake
-      tag_author   BIGINT         NOT NULL,
-    
-      -- Tag content. Allow up to 1800 characters.
-      tag_content  VARCHAR(1800)  CONSTRAINT not_whitespace_cont CHECK (
-                                    TRIM(tag_content) <> ''
-                                  )
-);'''
+
+async def _is_owner_check(ctx):
+    return await ctx.bot.is_owner(ctx.author)
 
 
 @neko.inject_setup
 class TagCog(neko.Cog):
+    """
+    Holds the command implementations for tags.
+    """
     def __init__(self, bot: neko.NekoBot):
         self.bot = bot
 
-    async def on_connect(self):
-        """Ensures the tables actually exist."""
+    async def __local_check(self, ctx):
+        """
+        Ensures commands are only runnable in guilds.
+        """
+        return ctx.guild is not None
 
+    async def on_connect(self):
+        """
+        Ensures the tables actually exist.
+        """
         self.logger.info('Ensuring tables exist')
-        async with self.bot.postgres_pool as pool:
-            async with pool.acquire() as conn:
-                await conn.execute(_create_tables)
+        async with self.bot.postgres_pool.acquire() as conn:
+            with open(neko.relative_to_here('create_tags_tbls.sql')) as fp:
+                await conn.execute(fp.read())
         self.logger.info('Tables should now exist if they didn\'t already.')
+
+    @property
+    def invalid_tag_names(self) -> typing.Iterable[str]:
+        """
+        Gets a frozenset of invalid tag names we disallow.
+        """
+        return frozenset({'add', 'remove', 'global', 'my', 'list', 'edit'})
 
     @neko.group(
         name='tag',
         brief='Text tags that can be defined and retrieved later',
-        invoke_without_command=True
-    )
-    async def tag_group(self, ctx):
-        page = neko.Page(title='Available tag commands')
-
-        description = []
-
-        for command in self.tag_group.commands:
-            if await command.can_run(ctx):
-                description.append(f'`{command.name}` - {command.brief}')
-
-        page.description = '\n'.join(sorted(description))
-
-        await ctx.send(embed=page)
+        usage='tag_name',
+        enabled=False,
+        invoke_without_command=True)
+    async def tag_group(self, ctx, tag_name):
+        """
+        Displays the tag if it can be found. The local tags are searched
+        first, and then the global tags.
+        """
+        print('tag')
 
     @tag_group.command(
+        name='inspect',
+        brief='Inspects a given tag, showing who made it.',
+        usage='tag_name',
+        enabled=False)
+    @commands.is_owner()
+    async def tag_inspect(self, ctx, tag_name):
+        """
+        This is only runnable by the bot owner.
+        """
+        print('tag inspect')
+
+    @tag_group.group(
         name='add',
-        brief='Add a local tag for this server')
-    async def tag_add(self, ctx, name, *, content):
-        async with self.bot.postgres_pool as pool:
-            async with pool.acquire():
-                pass
+        brief='Add a local tag for this server',
+        usage='tag_name content',
+        enabled=False,
+        invoke_without_command=True)
+    async def tag_add(self, ctx, tag_name, *, content):
+        """
+        Adds a local tag. The tag cannot contain spaces, and if an existing
+        tag exists with the name, then we cannot add it.
+        """
+        tag_name = tag_name.lower()
+
+        async with self.bot.postgres_pool.acquire() as conn:
+            # First see if the tag already exists.
+            await conn.execute('SET search_path TO nekozilla;')
+            existing = await conn.fetch(
+                'SELECT * FROM tags WHERE name = ($1);', tag_name)
+            if len(existing) > 0:
+                raise neko.NekoCommandError('Tag already exists')
+            elif tag_name in self.invalid_tag_names:
+                raise neko.NekoCommandError('Invalid tag name')
+            else:
+                await conn.execute(
+                    'INSERT INTO tags (name, created, author, guild, content) '
+                    'VALUES (($1), NOW(), ($2), ($3), ($4));',
+                    tag_name, ctx.author.id, ctx.guild.id, content)
+
+    @tag_add.command(
+        name='global',
+        brief='Adds a tag globally.',
+        usage='tag_name content',
+        enabled=False)
+    @commands.is_owner()
+    async def tag_add_global(self, ctx, tag_name, *, content):
+        """
+        This is only currently accessible by the bot owner.
+        """
+        print('tag add global')
+
+    @tag_group.group(
+        name='remove',
+        brief='Removes a tag from the local server.',
+        usage='tag_name',
+        enabled=False,
+        invoke_without_command=True)
+    async def tag_remove(self, ctx, tag_name):
+        """
+        Removes a local tag. You can only do this if you own the tag.
+        """
+        print('tag remove')
+
+    @tag_remove.command(
+        name='global',
+        brief='Deletes a global tag.',
+        usage='tag_name',
+        enabled=False)
+    @commands.is_owner()
+    async def tag_remove_global(self, ctx, tag_name):
+        """
+        Removes a global tag. Only accessible by the bot owner.
+        """
+        print('tag remove global')
+
+    @tag_group.command(
+        name='my',
+        brief='Lists tags that _you_ own.',
+        enabled=False,)
+    async def tag_my(self, ctx):
+        print('tag my')
+
+    @tag_group.group(
+        name='edit',
+        brief='Edits a local tag.',
+        usage='tag_name new content',
+        enabled=False,
+        invoke_without_command=True)
+    async def tag_edit(self, ctx, tag_name, *, new_content):
+        """
+        Edits a local tag. Only accessible if you already own the tag.
+        """
+        print('tag edit')
+
+    @tag_edit.command(
+        name='global',
+        brief='Edits a global tag.',
+        usage='tag_name new content',
+        enabled=False)
+    @commands.is_owner()
+    async def tag_edit_global(self, ctx, tag_name, *, new_content):
+        """
+        Edits a global tag. Only accessible by the bot owner.
+        """
+        print('tag edit global')
+
+    @tag_group.command(
+        name='list',
+        brief='Lists all available tags.',
+        enabled=False)
+    async def tag_list(self, ctx):
+        """
+        This lists bot local and global tags.
+        """
+        print('tag list')
+
