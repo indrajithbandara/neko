@@ -17,7 +17,6 @@ import discord
 
 import neko
 
-__all__ = ['AutoUnitConversionCog', 'setup']
 
 unit_pattern = \
     r'(?:\s|^)([-+]?(?:(?:\d+)\.\d+|\d+)(?:[eE][-+]?\d+)?) ?([-°^"/\w]+)(?:\b)'
@@ -576,6 +575,7 @@ def _measurement_to_string(measurement, should_round=True):
     return f'{rounded:g} {measurement.alias}'
 
 
+@neko.inject_setup
 class AutoUnitConversionCog(neko.Cog):
     """
     A cog that listens to incoming messages and spits out any applicable
@@ -687,6 +687,3 @@ class AutoUnitConversionCog(neko.Cog):
             await msg.clear_reactions()
         finally:
             self.logger.debug('Finished pagination element.')
-
-
-setup = AutoUnitConversionCog.mksetup()

@@ -6,6 +6,7 @@ import random
 import neko
 
 
+@neko.inject_setup
 class RngCog(neko.Cog):
     @neko.command(
         name='coinflip',
@@ -71,6 +72,3 @@ class RngCog(neko.Cog):
             results.append(str(random.randint(1, sides)))
 
         await ctx.send(', '.join(results))
-
-
-setup = RngCog.mksetup()

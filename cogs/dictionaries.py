@@ -1,7 +1,7 @@
 """
-Utilises the free wordnik API.
+Various online dictionaries, thesauruses, etc.
 
-Requires an API key.
+Note that the Wordnik integration requires an API key.
 
 Sign up:
     http://www.wordnik.com/signup
@@ -15,26 +15,46 @@ in my settings and found the API key there.
 The key should be stored in the tokens.json file under "wordnik"
 """
 import typing
+import urllib.parse
 
-# Pls fix your file names >.>
 import wordnik.swagger as swagger
-# noinspection PyPep8Naming
 import wordnik.WordApi as wordapi
-# noinspection PyPep8Naming
-import wordnik.models.Definition as definition
+import wordnik.models.Definition as wordnik_definition
 
 import neko
 
 
-_api_endpoint = 'http://api.wordnik.com/v4'
-_dictionaries = 'all'
+wordnik_endpoint = 'http://api.wordnik.com/v4'
+wordnik_dictionaries = 'all'
+
+# These are pairs of the API and user website endpoints.
+ud_random_def = ('http://api.urbandictionary.com/v0/random',
+                 'https://urbandictionary.com/random.php')
+ud_define_def = ('http://api.urbandictionary.com/v0/define',
+                 'https://urbandictionary.com/define.php')
+
+ud_icon_url = 'https://d2gatte9o95jao.cloudfront.net/assets/apple-touch-icon' \
+              '-55f1ee4ebfd5444ef5f8d5ba836a2d41.png '
+
+ud_thumb_url = 'https://vignette.wikia.nocookie.net/logopedia/images/a/a7' \
+               '/UDAppIcon.jpg/revision/latest?cb=20170422211150 '
 
 
-class WordnikCog(neko.Cog):
+@neko.inject_setup
+class DictionaryCog(neko.Cog):
+    """Contains the UrbanDictionary and Wordnik implementations."""
+
+    permissions = (neko.Permissions.SEND_MESSAGES |
+                   neko.Permissions.ADD_REACTIONS |
+                   neko.Permissions.READ_MESSAGES |
+                   neko.Permissions.MANAGE_MESSAGES)
+
     def __init__(self):
+        """Initialises any APIs and the cog."""
         self.__token = neko.get_token('wordnik')
-        self.logger.info(f'Opening API client for Wordnik to {_api_endpoint}')
-        self.client = swagger.ApiClient(self.__token, _api_endpoint)
+        self.logger.info(f'Opening API client to {wordnik_endpoint}')
+        self.client = swagger.ApiClient(self.__token, wordnik_endpoint)
+        super().__init__()
 
     @neko.command(
         name='def',
@@ -52,11 +72,13 @@ class WordnikCog(neko.Cog):
             # *prays to god this isn't lazy iterative.
             return api.getDefinitions(
                 word,
-                sourceDictionaries=_dictionaries,
+                sourceDictionaries=wordnik_dictionaries,
                 includeRelated=True
             )
 
-        words: typing.List[definition.Definition] = await neko.no_block(_define)
+        words: typing.List[
+            wordnik_definition.Definition
+        ] = await neko.no_block(_define)
 
         # Attempt to favour gcide and wordnet, as they have better definitions
         # imho.
@@ -76,7 +98,7 @@ class WordnikCog(neko.Cog):
             # Re-join.
             words = [*front, *back]
 
-            words: typing.List[definition.Definition] = [
+            words: typing.List[wordnik_definition.Definition] = [
                 word for word in words
                 if not word.sourceDictionary.startswith('ahd')
             ]
@@ -175,3 +197,90 @@ class WordnikCog(neko.Cog):
                 book += page
 
             await book.send()
+
+    @staticmethod
+    def __ud_check(ctx):
+        """
+        We don't want this to be run in the normal chat, but a server I am on
+        has a channel for stuff containing foul language that is not necessarily
+        designed for NSFW content (under 18's still get access).
+
+        The (mostly crap) solution is to allow any NSFW channels access to the
+        command, and also the designated channel. I identify this using the
+        name and ID of the channel for now.
+
+        :param ctx: context of the command invocation.
+        """
+        fc = (ctx.channel.name == 'filthy_channel'
+              and ctx.channel.id == 318007837336797185)
+        nsfw = ctx.channel.nsfw
+
+        return fc or nsfw
+
+    @neko.check(__ud_check)
+    @neko.command(name='ud', aliases=['urban'], brief='Search UD',
+                  usage='|word-or-phrase')
+    async def urban(self, ctx, *, phrase: str=None):
+        """
+        Searches urban dictionary for the given phrase or word.
+
+        If no word is specified, we pick a few random entries.
+        """
+        if phrase:
+            api, user = ud_define_def
+            resp = await neko.request('GET', api, params={'term': phrase})
+            user = user + '?' + urllib.parse.urlencode({'term': phrase})
+        else:
+            api, user = ud_random_def
+            resp = await neko.request('GET', api)
+
+        # Discard the rest, only be concerned with upto the first 10 results.
+        resp = await resp.json()
+        results = resp['list'][0:10]
+
+        book = neko.Book(ctx)
+
+        for definition in results:
+            page = neko.Page(
+                title=definition['word'].title(),
+                description=neko.ellipses(definition['definition'], 2000),
+                color=0xFFFF00,
+                url=user
+            )
+
+            page.add_field(
+                name='Example of usage',
+                value=neko.ellipses(definition['example'], 1024),
+                inline=False
+            )
+
+            page.add_field(
+                name='Author',
+                value=definition['author']
+            )
+
+            ups = definition['thumbs_up']
+            downs = definition['thumbs_down']
+
+            page.add_field(
+                name=f'\N{THUMBS UP SIGN} {ups}',
+                # No content (little discord trick)
+                value=f'\N{THUMBS DOWN SIGN} {downs}ᅠ'
+            )
+
+            page.set_thumbnail(url=ud_thumb_url)
+
+            if 'tags' in resp:
+                # Seems the tags can contain duplicates. Quick messy solution
+                # is to pass it into a set first.
+                page.set_footer(text=' '.join({*resp['tags']}),
+                                icon_url=ud_icon_url)
+            else:
+                page.set_footer(
+                    text=definition['permalink'],
+                    icon_url=ud_icon_url
+                )
+
+            book += page
+
+        await book.send()

@@ -14,6 +14,7 @@ tasters = [
 ]
 
 
+@neko.inject_setup
 class UncategorisedCog(neko.Cog):
 
     @neko.command(
@@ -39,6 +40,3 @@ class UncategorisedCog(neko.Cog):
         )
 
         await ctx.send(embed=embed)
-
-
-setup = UncategorisedCog.mksetup()

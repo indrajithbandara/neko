@@ -7,12 +7,12 @@ import typing
 import discord.ext.commands as commands
 from neko import log
 
-__all__ = ['Cog']
+__all__ = ['Cog', 'inject_setup']
 
 
 class Cog(log.Loggable):
     """Cog class definition."""
-    __slots__ = ['permissions']
+    permissions = 0
 
     @property
     def name(self):
@@ -118,3 +118,17 @@ class Cog(log.Loggable):
             raise NotImplementedError(
                 f'Unsupported auto-generation of setup for {signature}')
 
+
+def inject_setup(cog: typing.Type[Cog]):
+    """
+    Decorates a cog and injects a setup method into global scope for it.
+    :param cog: the cog to inject a setup method for
+    :return: the cog decorated.
+    """
+    module = inspect.getmodule(cog)
+
+    if hasattr(module, 'setup'):
+        raise RuntimeWarning(f'{module} already has a member called setup.')
+
+    setattr(module, 'setup', cog.mksetup())
+    return cog

@@ -18,6 +18,7 @@ assets_directory = neko.relative_to_here('assets')
 
 
 # @neko.with_verbosity('DEBUG')
+@neko.inject_setup
 class MewReactsCog(neko.Cog):
     """Reactions cog."""
 
@@ -99,5 +100,3 @@ class MewReactsCog(neko.Cog):
             # Reset the cool down.
             ctx.command.reset_cooldown(ctx)
 
-
-setup = MewReactsCog.mksetup()

@@ -86,6 +86,7 @@ def _unicode_table(characters):
     return results
 
 
+@neko.inject_setup
 class LettersCog(neko.Cog):
     """
     Provides a command to say text in BIG LETTERS!
@@ -204,5 +205,3 @@ class LettersCog(neko.Cog):
 
         await ctx.send('\n'.join(_unicode_table(chars)))
 
-
-setup = LettersCog.mksetup()
