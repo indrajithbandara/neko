@@ -2,25 +2,10 @@ from setuptools import setup
 
 import re
 
-dependencies = [
-    # For async http requests
-    'aiohttp',
 
-    # Asyncio PostgreSQL API wrapper
-    'asyncpg',
+with open('dependencies.txt') as deps:
+    dependencies = filter(lambda dep: dep.strip(), deps.read().split('\n'))
 
-    # Used for connection pools to non-async network-based APIs
-    'requests',
-    
-    # Wordnik integration
-    'wordnik-py3',
-
-    # BeautifulSoup4 HTML parser for Python3
-    'beautifulsoup4',
-
-    # PIL for images and stuff.
-    'pillow',
-]
 
 with open('neko/__init__.py') as neko_init:
     contents = neko_init.read().split('\n')
