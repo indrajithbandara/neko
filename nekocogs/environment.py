@@ -85,18 +85,6 @@ class HelpCog(neko.Cog):
         # correct page number.
         offset = len(bk)
 
-        # for i, cmd in enumerate(cmds):
-        #    bk += await self.gen_spec_page(ctx, cmd)
-        #    # We add 1, as w
-        #    command_to_page[cmd.qualified_name] = i + offset
-        #
-        #    # Also register any aliases.
-        #    for alias in cmd.aliases:
-        #        # This is the only way to get the fully qualified alias name.
-        #        fq_alias = f'{cmd.full_parent_name} {alias}'.strip()
-        #        command_to_page[fq_alias] = i + offset
-
-        # This is a lot lighter weight.
         page_index = None
         for i, cmd in enumerate(cmds):
             bk += await self.gen_spec_page(ctx, cmd)
@@ -653,6 +641,11 @@ class OwnerOnlyCog(neko.Cog):
     @command_grp.command(enabled=False)
     async def list_commands(self, ctx):
         raise NotImplementedError
+
+    @commands.command(name='uptime', brief='Says how long I '
+                     'have been running for.')
+    async def get_uptime(self, ctx):
+      raise NotImplementedError
 
 
 def setup(bot):
