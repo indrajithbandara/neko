@@ -1,0 +1,7 @@
+aiofiles
+aiohttp
+asyncpg
+beautifulsoup4
+pillow
+requests
+wordnik-py3
