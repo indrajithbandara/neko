@@ -263,13 +263,12 @@ class Book:
     async def _send_loop(self):
         # If no page has been shown yet, send a placeholder message.
         if not hasattr(self, '_msg') or self._msg is None:
-            msg = await self._ctx.send('Guess what? This is a super useless'
-                                       ' message and I just wasted your'
-                                       ' time and effort by making you'
-                                       ' read it.')
+            msg = await self._ctx.send('Loading pagination...')
             setattr(self, '_msg', msg)
+
             ensure_future(self._reset_buttons())
-            await self._update_page()
+
+        ensure_future(self._update_page())
 
         try:
             def check(_react, _user):
