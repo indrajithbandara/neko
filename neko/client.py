@@ -220,12 +220,6 @@ class NekoBot(commands.Bot, log.Loggable):
 
     async def ensure_db_setup(self):
         """Ensures the nekozilla schema exists."""
-        file = io.relative_to_here('create_database.sql')
-        self.logger.info('Opening and executing ' + file)
-
-        async with aiofiles.open(file) as fp:
-            command = await fp.read()
-
         pool = self.postgres_pool
         # noinspection PyProtectedMember
         if pool is None:
@@ -233,4 +227,4 @@ class NekoBot(commands.Bot, log.Loggable):
                                 'Check your configuration files.')
         else:
             async with pool.acquire() as conn:
-                await conn.execute(command)
+                await conn.execute('CREATE SCHEMA IF NOT EXISTS nekozilla;')
