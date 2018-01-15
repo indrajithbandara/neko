@@ -21,7 +21,7 @@ def load_or_make_json(file, *, default=None):
             return json.load(fp)
     except FileNotFoundError:
         logger.warning(f'{file} not found. Creating empty file.')
-        with open(file, 'w') as fp:
+        with open(file, 'w+') as fp:
             if default is None:
                 default = {}
             json.dump(default, fp)

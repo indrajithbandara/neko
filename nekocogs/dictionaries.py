@@ -40,6 +40,23 @@ ud_thumb_url = 'https://vignette.wikia.nocookie.net/logopedia/images/a/a7' \
                '/UDAppIcon.jpg/revision/latest?cb=20170422211150 '
 
 
+def _ud_check(ctx):
+    """
+    We don't want this to be run in the normal chat, but a server I am on
+    has a channel for stuff containing foul language that is not necessarily
+    designed for NSFW content (under 18's still get access).
+
+    The (mostly crap) solution is to allow any NSFW channels access to the
+    command, and also the designated channel. I identify this using the
+    name and ID of the channel for now.
+    """
+    fc = (ctx.channel.name == 'filthy_channel'
+          and ctx.channel.id == 318007837336797185)
+    nsfw = ctx.channel.nsfw
+
+    return fc or nsfw
+
+
 @neko.inject_setup
 class DictionaryCog(neko.Cog):
     """Contains the UrbanDictionary and Wordnik implementations."""
@@ -49,9 +66,9 @@ class DictionaryCog(neko.Cog):
                    neko.Permissions.READ_MESSAGES |
                    neko.Permissions.MANAGE_MESSAGES)
 
-    def __init__(self):
+    def __init__(self, bot):
         """Initialises any APIs and the cog."""
-        self.__token = neko.get_token('wordnik')
+        self.__token = bot.get_token('wordnik')
         self.logger.info(f'Opening API client to {wordnik_endpoint}')
         self.client = swagger.ApiClient(self.__token, wordnik_endpoint)
         super().__init__()
@@ -75,10 +92,10 @@ class DictionaryCog(neko.Cog):
                 sourceDictionaries=wordnik_dictionaries,
                 includeRelated=True
             )
-
-        words: typing.List[
-            wordnik_definition.Definition
-        ] = await neko.no_block(_define)
+        with ctx.typing():
+            words: typing.List[
+                wordnik_definition.Definition
+            ] = await ctx.bot.do_job_in_pool(_define)
 
         # Attempt to favour gcide and wordnet, as they have better definitions
         # imho.
@@ -198,25 +215,7 @@ class DictionaryCog(neko.Cog):
 
             await book.send()
 
-    def __ud_check(ctx):
-        """
-        We don't want this to be run in the normal chat, but a server I am on
-        has a channel for stuff containing foul language that is not necessarily
-        designed for NSFW content (under 18's still get access).
-
-        The (mostly crap) solution is to allow any NSFW channels access to the
-        command, and also the designated channel. I identify this using the
-        name and ID of the channel for now.
-
-        :param ctx: context of the command invocation.
-        """
-        fc = (ctx.channel.name == 'filthy_channel'
-              and ctx.channel.id == 318007837336797185)
-        nsfw = ctx.channel.nsfw
-
-        return fc or nsfw
-
-    @neko.check(__ud_check)
+    @neko.check(_ud_check)
     @neko.command(name='ud', aliases=['urban'], brief='Search UD',
                   usage='|word-or-phrase')
     async def urban(self, ctx, *, phrase: str=None):
@@ -225,13 +224,16 @@ class DictionaryCog(neko.Cog):
 
         If no word is specified, we pick a few random entries.
         """
-        if phrase:
-            api, user = ud_define_def
-            resp = await neko.request('GET', api, params={'term': phrase})
-            user = user + '?' + urllib.parse.urlencode({'term': phrase})
-        else:
-            api, user = ud_random_def
-            resp = await neko.request('GET', api)
+        with ctx.typing():
+            if phrase:
+                api, user = ud_define_def
+                resp = await ctx.bot.request('GET',
+                                             api,
+                                             params={'term': phrase})
+                user = user + '?' + urllib.parse.urlencode({'term': phrase})
+            else:
+                api, user = ud_random_def
+                resp = await ctx.bot.request('GET', api)
 
         # Discard the rest, only be concerned with upto the first 10 results.
         resp = await resp.json()

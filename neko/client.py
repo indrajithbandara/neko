@@ -1,14 +1,18 @@
 """
 Implementation of discord.ext.commands.Bot.
 """
-import asyncio
+import concurrent.futures
+import copy
+import functools
+import json
 import logging
 import os
 import signal
 import time
 import traceback
 
-import aiofiles
+# import aiofiles
+import aiohttp
 import asyncpg
 
 import discord
@@ -63,16 +67,124 @@ for signum in signals:
     signal.signal(signum, terminate)
 
 
+class Tokens(log.Loggable):
+    """
+    Holds a dictionary. The keys are case insensitive and the type behaves
+    as if it were immutable. This provides readonly access
+    """
+    __token_file = 'tokens.json'
+
+    def __init__(self):
+        try:
+            file = self.__token_file
+            self.logger.info(f'Reading external tokens from {file}')
+            with open(file) as fp:
+                data = json.load(fp)
+
+                if not isinstance(data, dict):
+                    raise TypeError('Expected map of names to keys.')
+                else:
+                    # Ensure no duplicates of keys (case insensitive)
+                    mapping = (*map(str.lower, data.keys()),)
+                    if len(mapping) != len({*mapping}):
+                        raise ValueError('Duplicate keys found.')
+                    else:
+                        self.__tokens = {}
+                        for k, v in data.items():
+                            self.__tokens[k.lower()] = v
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f'Cannot find {file}') from None
+
+    def __getitem__(self, api_name):
+        try:
+            return copy.deepcopy(self.__tokens[api_name])
+        except KeyError:
+            raise KeyError(f'No API key for {api_name} exists.') from None
+
+    def __setitem__(self, *_):
+        raise NotImplementedError('No chance.')
+
+
+class HttpRequestError(RuntimeError):
+    def __init__(self, response):
+        self.response = response
+
+    @property
+    def status(self) -> int:
+        return self.response.status
+
+    @property
+    def reason(self) -> str:
+        return self.response.reason
+
+    def __str__(self):
+        return ' '.join('[self.status, self.reason]')
+
+
 class NekoBot(commands.Bot, log.Loggable):
     """
-    Main bot runner. Takes a path to a JSON file
-    holding the bot configuration. Expects the following
-    fields to be present in said file.
+    Main bot runner. Takes a path to a JSON file holding the bot configuration.
+    Expects the following fields to be present in said file.
 
       - token (str)
       - client_id (int)
       - command_prefix (str)
       - owner_id (int)
+      - database (dict) {
+            user - str
+            password - str
+            host - str (optional)
+            database - str
+        }
+
+    **New Attributes:**
+        - ``_required_perms`` - int - Required permissions used in generating
+                invitation URLS.
+        - ``client_id`` - int - client id.
+        - ``http_pool`` - aiohttp.ClientSession - multipurpose HTTP session for
+                use by cogs that require the ability to do HTTP requests.
+        - ``logger`` - logging.Logger - Logger object.
+        - ``postgres_pool`` - asyncpg.pool.Pool - PostgreSQL connection pool.
+        - ``start_time`` - time.time - Time the bot logged in.
+        - ``invite_url`` - str - generates an invitation URL.
+        - ``up_time`` - time.time - gets the bot's uptime, or None if the bot
+                has yet to start.
+
+    **New Methods:**
+        - ``async def do_job_in_pool(func, *args, **kwargs)`` - runs func
+                in a dedicated thread pool executor without blocking the
+                current coroutine event loop.
+        - ``def get_token(name)`` - attempts to get the given token from the
+                tokens.json file. This file is read once and once only, and that
+                is during the ``NekoBot.__init__ method``. All members are
+                immutable and will always be deep copies of the initial value.
+
+    **Overridden Methods:**
+        - ``async def start()`` - now gets the token from the object's
+                ``__token`` attribute. This will then proceed to initialise
+                the postgresql async connection pool: ``postgres_pool``, and
+                then open an ``aiohttp`` ``ClientSession``: ``http_pool``.
+                Finally, the modules are loaded asynchronously in the thread
+                pool provided by this class and the bot is started.
+        - ``def run()`` - does not accept any parameters. The bot should be
+                specified a token via the ``config.json`` file. This now also
+                handles signals passed from the kernel such as SIGABRT, SIGSEGV,
+                and a few other bits and pieces to attempt to gracefully
+                terminate on signal-to-exit. A second signal will forcefully
+                disconnect the session. Todo: check this.
+        - ``def logout()`` - will now gracefully unload any cogs and extensions,
+                and then disconnect the aiohttp and postgres connection pools.
+        - ``def add_cog(cog)`` - logs the cog being added, and calculates if the
+                required permissions need to be updated for the bot.
+        - ``def remove_cog(cog)`` - logs the cog being removed.
+        - ``async def on_command_error(...)`` - if the command error is due to
+                the command not being found, then instead of outputting
+                the error, we just attempt to react a "?" to the sender context.
+        - ``async def request(method, url, **kwargs)`` - performs a request in
+                the ``http_pool``; HOWEVER. This will also validate and
+                sanitise against any exceptions that may occur, or HTTP
+                error codes that may get raised.
     """
 
     def __init__(self):
@@ -94,36 +206,84 @@ class NekoBot(commands.Bot, log.Loggable):
         )
 
         self.__db_conf = common.get_or_die(config, 'database')
+        self.__postgres_pool: asyncpg.pool.Pool = None
+        self.__http_pool: aiohttp.ClientSession = None
 
-        self.postgres_pool: asyncpg.pool.Pool = None
+        self.__extra_tokens = Tokens()
 
         # Remove the injected help command.
         self.remove_command('help')
+
+        # For basic IO bound work, and blocking work.
+        self.__thread_pool_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=config.get('max_workers'),
+            thread_name_prefix='Nekozilla Threadpool'
+        )
 
         # Field for the bot's start time
         self.start_time: time.time = None
         self._required_perms = 0
         self.logger.info(f'Add me to a guild at {self.invite_url}')
 
+    @property
+    def invite_url(self) -> str:
+        """Gets the URL to invite the bot to a guild."""
+        return (
+            'https://discordapp.com/oauth2/authorize?scope=bot&'
+            f'client_id={self.client_id}&permissions={self._required_perms}'
+        )
+
+    @property
+    def http_pool(self) -> aiohttp.ClientSession:
+        """
+        Gets the allocated HTTP pool.
+
+        Usage (given ``self`` is called ``bot``):
+           res = await bot.http_pool.request(...)
+        """
+        return self.__http_pool
+
+    @property
+    def postgres_pool(self) -> asyncpg.pool.Pool:
+        """
+        Gets the allocated database connection pool.
+
+        Usage (given ``self`` is called ``bot``):
+            with bot.postgres_pool.acquire() as conn:
+                await conn.execute('SELECT * FROM table WHERE x = y;')
+        """
+        return self.__postgres_pool
+
+    @property
+    def up_time(self) -> time.time:
+        """Gets the bot's up-time"""
+        return time.time() - self.start_time
+
+    def get_token(self, api_name: str):
+        """
+        Attempts to get the token for the given API name.
+        :param api_name: the API name to attempt to get the token of.
+        :return: the token.
+        :raises KeyError: if the token is not found.
+        """
+        return self.__extra_tokens[api_name]
+
     async def start(self):
         """Starts the bot asynchronously."""
-        async def make_pool():
-            """Creates the postgresql connection pool."""
-            # noinspection PyBroadException
-            try:
-                self.logger.info('Creating postgres pool')
-                self.postgres_pool = await asyncpg.create_pool(**self.__db_conf)
-            except BaseException:
-                traceback.print_exc()
-                self.logger.error('Could not initialise database pool.')
-            else:
-                self.logger.info('Successfully created pool')
-                await self.ensure_db_setup()
-        await make_pool()
+        await self.__init_https_session()
+        await self.__init_postgres_pool()
 
-        # Should work. Todo: make sure this doesn't do weird shit.
-        await common.no_block(self._load_plugins)
+        # Should be thread-safe. We assume nothing else will be in the loop
+        # yet, as the bot should not have been started, and we are waiting on
+        # the thread to finish the work. This _might_ cause weird behaviour
+        # in the future, I am not sure. If it does, then we should just
+        # accept that it is a blocking call I guess. The problem is, this
+        # may rely on the fact that the HTTPS session or postgres pool are
+        # already initialised, so we cannot call this before now without
+        # further complications. Fixme.
 
+        # The issue is, we have to
+        await self.do_job_in_pool(self._load_plugins)
         self.start_time = time.time()
         await super().start(self.__token)
 
@@ -153,12 +313,8 @@ class NekoBot(commands.Bot, log.Loggable):
             self.logger.info(f'Unloading extension {p}.')
             self.unload_extension(p)
 
-        # noinspection PyProtectedMember
-        if self.postgres_pool is not None and \
-                not self.postgres_pool._closed and \
-                self.postgres_pool._initialized:
-            self.logger.info('Closing database connection.')
-            await self.postgres_pool.close()
+        await self.__deinit_postgres_pool()
+        await self.__deinit_postgres_pool()
         await super().logout()
 
     def add_cog(self, cog):
@@ -172,35 +328,12 @@ class NekoBot(commands.Bot, log.Loggable):
         """Removes a cog."""
         cog = self.get_cog(name)
         self.logger.info(f'Removing cog {type(cog).__name__}')
-        self._required_perms ^= getattr(cog, 'permissions', 0)
+
+        # This will not work, as it will remove a permission regardless of if
+        # another module requires it.
+        # Fixme.
+        # self._required_perms ^= getattr(cog, 'permissions', 0)
         super().remove_cog(name)
-
-    @property
-    def invite_url(self) -> str:
-        """Gets the URL to invite the bot to a guild."""
-        return (
-            'https://discordapp.com/oauth2/authorize?scope=bot&'
-            f'client_id={self.client_id}&permissions={self._required_perms}'
-        )
-
-    @property
-    def up_time(self) -> time.time:
-        """Gets the bot's up-time"""
-        return time.time() - self.start_time
-
-    def _load_plugins(self):
-        """Loads any plugins in the plugins.json file."""
-        for p in io.load_or_make_json('plugins.json', default=[]):
-            # noinspection PyBroadException
-            try:
-                self.logger.debug(f'Loading extension {p}.')
-                self.load_extension(p)
-                self.logger.debug(f'Successfully loaded extension {p}.')
-            except discord.ClientException as ce:
-                self.logger.warning(f'Failed to load {p} because {ce}')
-            except BaseException:
-                traceback.print_exc()
-                self.logger.error(f'Error loading {p}; continuing without it.')
 
     async def on_command_error(self, ctx, error):
         """
@@ -218,13 +351,112 @@ class NekoBot(commands.Bot, log.Loggable):
         else:
             super().on_command_error(ctx, error)
 
-    async def ensure_db_setup(self):
-        """Ensures the nekozilla schema exists."""
-        pool = self.postgres_pool
-        # noinspection PyProtectedMember
-        if pool is None:
-            self.logger.warning('Could not initialise database. '
-                                'Check your configuration files.')
+    async def do_job_in_pool(self, job, *args, **kwargs):
+        """
+        Executes the given function in a separate thread and waits for it
+        to finish. This will not block the async event queue. The result is
+        returned, or if an exception occurs, this propagates out of this
+        coroutine.
+        """
+        return await self.loop.run_in_executor(
+            self.__thread_pool_executor,
+            functools.partial(
+                job,
+                *args,
+                **kwargs
+            )
+        )
+
+    async def request(self, method, url, **kwargs):
+        """
+        Performs the given HTTP request in the pool asynchronously, but
+        also validates the connection properly for you. If an error occurs, then
+        a nice tidy HttpRequestError is raised with all the info you could ever
+        need. This is designed to allow direct dumping of error messages
+        directly as user output to discord, as I am lazy.
+
+        :param url: URL to access.
+        :param method: HTTP method to use.
+        :param kwargs: any kwargs to provide to
+                ``aiohttp.ClientSession.request``
+        :return: the result of the request.
+        :raise: HttpRequestError, or any exception raised by aiohttp normally.
+                (cba to rtfm right now and list them!)
+        """
+
+        valid_responses = {
+            *common.between(100, 102),
+            *common.between(200, 208),
+            *common.between(300, 302),
+        }
+
+        resp = await self.http_pool.request(method, url, **kwargs)
+        if resp.status not in valid_responses:
+            raise HttpRequestError(resp)
         else:
-            async with pool.acquire() as conn:
+            return resp
+
+    def _load_plugins(self):
+        """Loads any plugins in the plugins.json file."""
+        for p in io.load_or_make_json('plugins.json', default=[]):
+            # noinspection PyBroadException
+            try:
+                self.logger.debug(f'Loading extension {p}.')
+                self.load_extension(p)
+                self.logger.debug(f'Successfully loaded extension {p}.')
+            except discord.ClientException as ce:
+                self.logger.warning(f'Failed to load {p} because {ce}')
+            except BaseException:
+                traceback.print_exc()
+                self.logger.error(f'Error loading {p}; continuing without it.')
+
+    async def __init_postgres_pool(self):
+        """
+        Initialises the Postgres pool and then Ensures the nekozilla schema
+        exists.
+        """
+        # noinspection PyBroadException
+        try:
+            self.logger.debug('Creating postgres pool')
+            self.__postgres_pool = await asyncpg.create_pool(
+                loop=self.loop,
+                **self.__db_conf
+            )
+        except BaseException:
+            traceback.print_exc()
+            self.logger.error('Could not initialise database pool.')
+        else:
+            self.logger.info('Created postgres pool. Database says HELLO!')
+            async with self.postgres_pool.acquire() as conn:
                 await conn.execute('CREATE SCHEMA IF NOT EXISTS nekozilla;')
+
+    async def __deinit_postgres_pool(self):
+        """Destroys the postgresql pool."""
+        # These checks are to prevent further errors if we didn't successfully
+        # initialise the postgres connector at startup, as the bot will still
+        # attempt to function without it.
+        # noinspection PyProtectedMember
+        if self.postgres_pool is not None and \
+                not self.postgres_pool._closed and \
+                self.postgres_pool._initialized:
+            self.logger.info('Closing postgres connection.')
+            await self.postgres_pool.close()
+        self.logger.debug('Postgres connection was successfully destroyed.')
+        self.__postgres_pool = None
+
+    async def __init_https_session(self):
+        """Initialises the HTTP session usable by cogs."""
+        self.logger.debug('Initialising aiohttp client session (and pool).')
+        self.__http_pool = aiohttp.ClientSession(
+            loop=self.loop
+        )
+        self.logger.info('Initialised aiohttp client session (and pool).')
+
+    async def __deinit_https_session(self):
+        """Destroys the HTTP session."""
+        self.logger.info('Closing aiohttp client session (and pool).')
+        if self.http_pool is not None and self.http_pool.closed:
+            self.__http_pool.close()
+        self.__http_pool = None
+        self.logger.debug('Aiohttp client session (and pool) was successfully '
+                          'destroyed.')

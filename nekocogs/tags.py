@@ -91,18 +91,17 @@ class TagCog(neko.Cog):
 
         async with self.bot.postgres_pool.acquire() as conn:
             # First see if the tag already exists.
-            await conn.execute('SET search_path TO nekozilla;')
             existing = await conn.fetch(
-                'SELECT * FROM tags WHERE name = ($1) AND '
-                '(guild = NULL or guild = ($2);', tag_name, ctx.guild.id)
+                'SELECT * FROM nekozilla.tags WHERE name = ($1) AND '
+                '(guild IS NULL or guild = ($2));', tag_name, ctx.guild.id)
             if len(existing) > 0:
                 raise neko.NekoCommandError('Tag already exists')
             elif tag_name in self.invalid_tag_names:
                 raise neko.NekoCommandError('Invalid tag name')
             else:
                 result = await conn.execute(
-                    'INSERT INTO tags (name, created, author, guild, content) '
-                    'VALUES (($1), NOW(), ($2), ($3), ($4));',
+                    'INSERT INTO nekozilla.tags (name, created, author, guild, '
+                    'content) VALUES (($1), NOW(), ($2), ($3), ($4));',
                     tag_name, ctx.author.id, ctx.guild.id, content)
 
                 # TODO: check what result is and what to do with it
@@ -122,9 +121,9 @@ class TagCog(neko.Cog):
 
         async with self.bot.postgres_pool.acquire() as conn:
             # First see if the tag already exists.
-            await conn.execute('SET search_path TO nekozilla;')
             existing = await conn.fetch(
-                'SELECT * FROM tags WHERE name = ($1) AND guild = NULL;',
+                'SELECT * FROM nekozilla.tags WHERE name = ($1) '
+                'AND guild IS NULL;',
                 tag_name)
             if len(existing) > 0:
                 raise neko.NekoCommandError('Tag already exists')
@@ -132,8 +131,8 @@ class TagCog(neko.Cog):
                 raise neko.NekoCommandError('Invalid tag name')
             else:
                 result = await conn.execute(
-                    'INSERT INTO tags (name, created, author, guild, content) '
-                    'VALUES (($1), NOW(), ($2), NULL, ($3));',
+                    'INSERT INTO nekozilla.tags (name, created, author, guild, '
+                    'content) VALUES (($1), NOW(), ($2), NULL, ($3));',
                     tag_name, ctx.author.id, content)
 
                 # TODO: check what result is and what to do with it

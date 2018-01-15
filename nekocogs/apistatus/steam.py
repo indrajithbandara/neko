@@ -89,9 +89,9 @@ def parse_stat_list(stat_dict):
     return '\n'.join(stats if stats else ['No stats'])
 
 
-async def get_status():
+async def get_status(bot):
     """Gets a dict of the status information."""
-    response = await neko.request('GET', api_endpoint)
+    response = await bot.request('GET', api_endpoint)
     obj = await response.json()
     assert isinstance(obj, dict)
     return obj
@@ -123,7 +123,8 @@ class SteamStatusNut(neko.Cog):
 
         embed.set_thumbnail(url=game_thumbs['steam'])
 
-        resp = await get_status()
+        with ctx.typing():
+            resp = await get_status(ctx.bot)
 
         for service in steam_core_services:
             if service not in resp:
@@ -164,7 +165,8 @@ class SteamStatusNut(neko.Cog):
 
         embed.set_thumbnail(url=game_thumbs['csgo'])
 
-        resp = await get_status()
+        with ctx.typing():
+            resp = await get_status(ctx.bot)
 
         item_server_str = []
         for k, v in resp['IEconItems']['730'].items():
@@ -214,7 +216,8 @@ class SteamStatusNut(neko.Cog):
 
         embed.set_thumbnail(url=game_thumbs['dota2'])
 
-        resp = await get_status()
+        with ctx.typing():
+            resp = await get_status(ctx.bot)
 
         item_server_str = []
         for k, v in resp['IEconItems']['570'].items():
@@ -261,7 +264,8 @@ class SteamStatusNut(neko.Cog):
 
         embed.set_thumbnail(url=game_thumbs['tf2'])
 
-        resp = await get_status()
+        with ctx.typing():
+            resp = await get_status(ctx.bot)
 
         coordinator_str = []
         coordinator = resp['ISteamGameCoordinator']['440']

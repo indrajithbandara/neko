@@ -15,13 +15,11 @@ from .cog import *
 from .command import *
 from .common import *
 from .excuses import *
-from .http import *
 from .io import *
 from .log import *
 from .perms import *
 from .singleton import *
 from .strings import *
-from .tokens import *
 
 
 # These are useful to have in the namespace.
@@ -45,7 +43,7 @@ __all__ = [
 __author__ = 'Espeonageon'
 __license__ = 'MIT'
 __copyright__ = f'Copyright 2017-2018 {__author__}'
-__version__ = '2018-Jan-14.3'
+__version__ = '2018-Jan-15.3'
 __title__ = 'Nekozilla'
 __repo_name__ = 'neko'
 __repository__ = f'https://github.com/{__author__}/{__repo_name__}'

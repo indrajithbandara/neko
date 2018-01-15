@@ -13,6 +13,9 @@ from . import coordinate
 
 
 class SpaceCog(neko.Cog):
+    def __init__(self, bot: neko.NekoBot):
+        self.bot = bot
+
     async def plot(self, latitude, longitude, bytesio):
         """
         Plots a longitude and latitude on a given mercator projection.
@@ -46,7 +49,7 @@ class SpaceCog(neko.Cog):
             pen.ellipse([(x-4, y-4), (x+4, y+4)], (255, 0, 0))
 
             return mercator.image
-        image: PIL.Image.Image = await neko.no_block(_plot)
+        image: PIL.Image.Image = await self.bot.do_job_in_pool(_plot)
 
         image.save(bytesio, 'PNG')
 
@@ -63,7 +66,7 @@ class SpaceCog(neko.Cog):
         with ctx.channel.typing():
             # Plot the first point
             with io.BytesIO() as b:
-                res = await neko.request(
+                res = await self.bot.request(
                     'GET',
                     'https://api.wheretheiss.at/v1/satellites/25544'
                 )

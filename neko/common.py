@@ -1,9 +1,6 @@
 """
 Contains common helper methods and definitions
 """
-import asyncio
-import concurrent.futures
-import functools
 import inspect
 import random
 import sys
@@ -13,7 +10,7 @@ from neko import strings
 
 __all__ = [
     'find', 'async_find', 'get_or_die', 'is_coroutine', 'python_extensions',
-    'random_color', 'random_colour', 'between', 'json_types', 'no_block',
+    'random_color', 'random_colour', 'between', 'json_types',
 ]
 
 # Valid file extensions for python scripts, compiled binaries, archives,
@@ -121,46 +118,3 @@ def between(start: int, stop: int, step: int=1):
     :return: a range object.
     """
     return range(start, stop + 1, step)
-
-
-_default_tpe = concurrent.futures.ThreadPoolExecutor(
-    thread_name_prefix='neko_tpe',
-    max_workers=8
-)
-
-
-async def no_block(func: typing.Callable,
-                   *,
-                   args: typing.Iterable=None,
-                   kwargs: typing.Dict[str, typing.Any]=None,
-                   executor: concurrent.futures.Executor=None,
-                   loop: asyncio.AbstractEventLoop=None):
-    """
-    Shortcut for providing a simplistic interface to executing a blocking
-    function asynchronously.
-    :param func: the function to call.
-    :param args: the arguments to provide.
-    :param kwargs: the keyword arguments to provide.
-    :param executor: the executor to use. If None, defaults to a preset TPE.
-    :param loop: the event loop to use, otherwise defaults to the default loop.
-    :return: the result of func, or None if no result was returned.
-    :raises: anything the func can raise; TypeError if func is a coroutine.
-    """
-    if is_coroutine(func):
-        raise TypeError('Cannot call no_block on a coroutine.')
-
-    if not args:
-        args = []
-    if not kwargs:
-        kwargs = {}
-
-    # Use functools to wrap the call to allow kwargs
-    partial = functools.partial(func, *args, **kwargs)
-
-    if not executor:
-        executor = _default_tpe
-
-    if not loop:
-        loop = asyncio.get_event_loop()
-
-    return await loop.run_in_executor(executor, partial)

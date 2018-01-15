@@ -5,6 +5,8 @@ import datetime
 import re
 import typing
 
+import asyncio
+
 import neko
 
 
@@ -98,12 +100,28 @@ class DiscordServiceStatusNut(neko.Cog):
 
         async with ctx.message.channel.typing():
 
-            # TODO: gather futures to speed up?
-            # TODO: finish impl.
-            status = await self.get_status()
-            components = await self.get_components()
-            incidents = await self.get_incidents()
-            sms = await self.get_scheduled_maintenances()
+            bot = ctx.bot
+
+            """
+            status = await self.get_status(bot)
+            components = await self.get_components(bot)
+            incidents = await self.get_incidents(bot)
+            sms = await self.get_scheduled_maintenances(bot)
+            """
+
+            stat_res, comp_res, inc_res, sms_res = await asyncio.gather(
+                bot.http_pool.get(get_endpoint('summary.json')),
+                bot.http_pool.get(get_endpoint('components.json')),
+                bot.http_pool.get(get_endpoint('incidents.json')),
+                bot.http_pool.get(get_endpoint('scheduled-maintenances.json'))
+            )
+
+            status, components, incidents, sms = await asyncio.gather(
+                self.get_status(stat_res),
+                self.get_components(comp_res),
+                self.get_incidents(inc_res),
+                self.get_scheduled_maintenances(sms_res)
+            )
 
             # Make the front page!
             if status['indicator'] == 'None':
@@ -206,10 +224,11 @@ class DiscordServiceStatusNut(neko.Cog):
             await book.send()
 
     @staticmethod
-    async def get_status() -> typing.Dict[str, typing.Any]:
+    async def get_status(res) -> typing.Dict[str, typing.Any]:
         """
         Gets the short overall status of Discord.
 
+        :param res: the http response.
         :return: a map of:
             description - str, None
             color - int
@@ -217,7 +236,6 @@ class DiscordServiceStatusNut(neko.Cog):
             updated_at - datetime
             url - str
         """
-        res = await neko.request('GET', get_endpoint('summary.json'))
         res = await res.json()
 
         updated_at = res['page']['updated_at']
@@ -232,11 +250,12 @@ class DiscordServiceStatusNut(neko.Cog):
         }
 
     @staticmethod
-    async def get_components(hide_un_degraded=True) \
+    async def get_components(res, hide_un_degraded=True) \
             -> typing.Dict[str, typing.List]:
         """
         Gets the status of individual components of Discord.
 
+        :param res: the http response.
         :param hide_un_degraded: defaults to true. If true, we respect the
                API's intent to hide any component marked true under
                "only_show_if_degraded" unless the component is actually
@@ -250,7 +269,6 @@ class DiscordServiceStatusNut(neko.Cog):
                 updated_at - datetime
                 description - str, None
         """
-        res = await neko.request('GET', get_endpoint('components.json'))
         res = await res.json()
 
         # Anything that is not set to "showcase" belongs in the
@@ -298,7 +316,7 @@ class DiscordServiceStatusNut(neko.Cog):
         return {'showcase': showcase_result, 'rest': rest_result}
 
     @classmethod
-    async def get_incidents(cls) -> typing.Dict[str, typing.List]:
+    async def get_incidents(cls, res) -> typing.Dict[str, typing.List]:
         """
         Gets a dict containing two keys: 'resolved' and 'unresolved'.
 
@@ -306,10 +324,11 @@ class DiscordServiceStatusNut(neko.Cog):
 
         Due to the quantity of information this returns, we only get the
         first 5, resolved. All unresolved are returned.
+
+        :param res: the http response.
         """
         max_resolved = 5
 
-        res = await neko.request('GET', get_endpoint('incidents.json'))
         res = (await res.json())['incidents']
 
         unresolved = []
@@ -378,14 +397,14 @@ class DiscordServiceStatusNut(neko.Cog):
         return updates
 
     @staticmethod
-    async def __get_active_and_scheduled_maintenances():
+    async def __get_active_and_scheduled_maintenances(res):
         """
         We do not care about maintenances that are done with, but this contains
         a lot of irrelevant information, so I guess we should skip what we
         don't need now.
+
+        :param res: the response to use.
         """
-        ep = get_endpoint('scheduled-maintenances.json')
-        res = await neko.request('GET', ep)
         res = await res.json()
         res = res['scheduled_maintenances']
 
@@ -393,11 +412,13 @@ class DiscordServiceStatusNut(neko.Cog):
         # test: return res
 
     @classmethod
-    async def get_scheduled_maintenances(cls) -> typing.List[typing.Dict]:
+    async def get_scheduled_maintenances(cls, res) -> typing.List[typing.Dict]:
         """
         Gets a list of active and scheduled maintenance events.
+
+        :param res: the response to use.
         """
-        in_events = await cls.__get_active_and_scheduled_maintenances()
+        in_events = await cls.__get_active_and_scheduled_maintenances(res)
 
         out_events = []
 

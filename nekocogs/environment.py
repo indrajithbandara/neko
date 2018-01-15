@@ -405,7 +405,7 @@ class ActivityThread(threading.Thread, neko.Cog):
         command_choice = list(
             filter(
                 # Hide superuser commands.
-                lambda c: not c.qualified_name.startswith('sudo'),
+                lambda c: not c.qualified_name.startswith('sudo') and c.enabled,
                 self.bot.walk_commands()
             )
         )
@@ -482,7 +482,7 @@ class OwnerOnlyCog(neko.Cog):
         process blocks, then the entire bot will block.
         """
         start = time.time()
-        ctx.bot.load_extension(fqn)
+        await ctx.bot.do_job_in_pool(ctx.bot.load_extension, fqn)
         delta = (time.time() - start) * 1e4
 
         await ctx.send(f'Loaded `{fqn}` successfully in {delta:.3}ms')
@@ -516,7 +516,7 @@ class OwnerOnlyCog(neko.Cog):
             func = ctx.bot.unload_extension
 
         start = time.time()
-        func(fqn)
+        await ctx.bot.do_job_in_pool(func, fqn)
         delta = (time.time() - start) * 1e4
 
         await ctx.send(f'Unloaded `{fqn}` successfully via '

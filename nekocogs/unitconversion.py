@@ -599,7 +599,8 @@ class AutoUnitConversionCog(neko.Cog):
             return
 
         start_time = time.time()
-        results = _find_any_conversions(message.content)
+        results = await self.bot.do_job_in_pool(
+            _find_any_conversions, message.content)
         results = list(results)
 
         # Measure runtime in microseconds
@@ -653,7 +654,7 @@ class AutoUnitConversionCog(neko.Cog):
         Listens on a message for an 'X' button to be reacted by ANYONE.
         If this happens, the message is deleted. This lasts for 5 minutes.
 
-        :param msg: the message to listen to.+
+        :param msg: the message to listen to.
         """
         delete_rct = '\N{PUT LITTER IN ITS PLACE SYMBOL}'
         close_rct = '\N{SQUARED OK}'

@@ -74,29 +74,39 @@ class MewReactsCog(neko.Cog):
 
         Run `mewd` to destroy the calling message.
         """
-        react_name = react_name.lower()
+        with ctx.typing():
+            react_name = react_name.lower()
 
-        # If the react is there, then send it!
-        if react_name and react_name in self.images:
-            try:
-                if ctx.invoked_with == 'mewd':
-                    await ctx.message.delete()
-                file_name = random.choice(self.images[react_name])
-                await ctx.send(file=discord.File(file_name))
-            except discord.Forbidden:
-                ctx.command.reset_cooldown(ctx)
-            except FileNotFoundError:
-                ctx.command.reset_cooldown(ctx)
-                traceback.print_exc()
-                raise neko.NekoCommandError('Something broke and the dev was '
-                                            'shot. Please try again later ^w^')
-        # Otherwise, if the react doesn't exist, or wasn't specified, then
-        # list the reacts available.
-        else:
-            book = neko.PaginatedBook(title='Available reactions', ctx=ctx)
-            book.add_line(', '.join(map(lambda n: f'`{n}`', sorted(self.images))))
-            await book.send()
+            # If the react is there, then send it!
+            if react_name and react_name in self.images:
+                try:
+                    if ctx.invoked_with == 'mewd':
+                        await ctx.message.delete()
+                    file_name = random.choice(self.images[react_name])
+                    await ctx.send(file=discord.File(file_name))
+                except discord.Forbidden:
+                    ctx.command.reset_cooldown(ctx)
+                except FileNotFoundError:
+                    ctx.command.reset_cooldown(ctx)
+                    traceback.print_exc()
+                    raise neko.NekoCommandError(
+                        'Something broke and the dev '
+                        'was shot. Please try again later ^w^'
+                    )
+            # Otherwise, if the react doesn't exist, or wasn't specified, then
+            # list the reacts available.
+            else:
+                book = neko.PaginatedBook(title='Available reactions', ctx=ctx)
+                book.add_line(
+                    ', '.join(
+                        map(
+                            lambda n: f'`{n}`',
+                            sorted(self.images)
+                        )
+                    )
+                )
+                await book.send()
 
-            # Reset the cool down.
-            ctx.command.reset_cooldown(ctx)
+                # Reset the cool down.
+                ctx.command.reset_cooldown(ctx)
 
