@@ -8,21 +8,18 @@ import json
 import logging
 import os
 import signal
+import sys
 import time
 import traceback
-
-# import aiofiles
 import aiohttp
 import asyncpg
-
 import discord
 import discord.ext.commands as commands
-
 import neko.common as common
-import neko.log as log
 import neko.io as io
+import neko.log as log
 
-__all__ = ['NekoBot']
+__all__ = ['NekoBot' 'HttpRequestError']
 
 
 config_template = {
@@ -50,7 +47,11 @@ def terminate(signal_no, _):
 
 
 # Signals. Apparently Windows doesn't implement all these... go figure.
+# Fixme: make a behaviour of the bot, rather than from just importing
+# the module, as that is shit programming style.
 if os.name == 'nt':
+    print('This bot has not been tested on Windows. Good luck...',
+          file=sys.stderr)
     signals = (
         signal.SIGABRT,
         signal.SIGTERM,
@@ -107,6 +108,7 @@ class Tokens(log.Loggable):
 
 
 class HttpRequestError(RuntimeError):
+    """Represents an Http failure."""
     def __init__(self, response):
         self.response = response
 
@@ -159,6 +161,10 @@ class NekoBot(commands.Bot, log.Loggable):
                 tokens.json file. This file is read once and once only, and that
                 is during the ``NekoBot.__init__ method``. All members are
                 immutable and will always be deep copies of the initial value.
+        - ``async def request(method, url, **kwargs)`` - performs a request in
+                the ``http_pool``; HOWEVER. This will also validate and
+                sanitise against any exceptions that may occur, or HTTP
+                error codes that may get raised.
 
     **Overridden Methods:**
         - ``async def start()`` - now gets the token from the object's
@@ -181,10 +187,6 @@ class NekoBot(commands.Bot, log.Loggable):
         - ``async def on_command_error(...)`` - if the command error is due to
                 the command not being found, then instead of outputting
                 the error, we just attempt to react a "?" to the sender context.
-        - ``async def request(method, url, **kwargs)`` - performs a request in
-                the ``http_pool``; HOWEVER. This will also validate and
-                sanitise against any exceptions that may occur, or HTTP
-                error codes that may get raised.
     """
 
     def __init__(self):
@@ -283,7 +285,7 @@ class NekoBot(commands.Bot, log.Loggable):
         # further complications. Fixme.
 
         # The issue is, we have to
-        await self.do_job_in_pool(self._load_plugins)
+        await self.do_job_in_pool(self.__load_plugins)
         self.start_time = time.time()
         await super().start(self.__token)
 
@@ -396,7 +398,7 @@ class NekoBot(commands.Bot, log.Loggable):
         else:
             return resp
 
-    def _load_plugins(self):
+    def __load_plugins(self):
         """Loads any plugins in the plugins.json file."""
         for p in io.load_or_make_json('plugins.json', default=[]):
             # noinspection PyBroadException
@@ -460,3 +462,4 @@ class NekoBot(commands.Bot, log.Loggable):
         self.__http_pool = None
         self.logger.debug('Aiohttp client session (and pool) was successfully '
                           'destroyed.')
+
