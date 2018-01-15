@@ -1,12 +1,12 @@
 [
-  "cogs.unitconversion",
-  "cogs.letters",
-  "cogs.apistatus",
-  "cogs.dictionaries",
-  "cogs.rng",
-  "cogs.mewreacts",
-  "cogs.environment",
-  "cogs.space",
-  "cogs.uncategorised",
-  "cogs.tags"
+  "nekocogs.unitconversion",
+  "nekocogs.letters",
+  "nekocogs.apistatus",
+  "nekocogs.dictionaries",
+  "nekocogs.rng",
+  "nekocogs.mewreacts",
+  "nekocogs.environment",
+  "nekocogs.space",
+  "nekocogs.uncategorised",
+  "nekocogs.tags"
 ]

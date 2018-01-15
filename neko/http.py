@@ -13,7 +13,7 @@ __all__ = ['StatusCode', 'is_success', 'HttpRequestError', 'request',
            'validate_uri']
 
 _socket: aiohttp.ClientSession = None
-_logger = log.Loggable.generate_logger('neko.utils.http')
+_logger = log.Loggable.generate_logger('neko.http')
 
 
 class HttpRequestError(RuntimeError):
@@ -43,10 +43,16 @@ async def request(method, url, dont_validate=False, **kwargs) \
     """
     global _socket
     if not _socket:
-        _logger.info('Generating aiohttp ClientSession')
+        _logger.info('Generating multipurpose AIOHTTP session.')
         _socket = aiohttp.ClientSession()
-        atexit.register(lambda: _socket.close())
-        _logger.info('Registered shutdown closure hook.')
+        def kill_socket():
+            global _socket
+            _socket.close()
+            _socket = None
+            _logger.info('Closed multipurpose AIOHTTP session.')
+
+        atexit.register(kill_socket)
+        _logger.info('Registered shutdown closure hook for AIOHTTP.')
 
     desc = f'{method.upper()} {url}'
 
