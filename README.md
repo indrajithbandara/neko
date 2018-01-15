@@ -21,3 +21,4 @@ This file must consist of a root JSON object, and the following mandatory fields
 | `token` | `str` | The bot's token. |
 | `owner_id` | `int` | The owner's user ID. They get elevated permissions. |
 | `command_prefix` | `str` | The command prefix to respond to. |
+| `database` | `dict` | Contains keys for `user`, `password`, `host` and `database` used to connect to a PostgreSQL DBMS. |
