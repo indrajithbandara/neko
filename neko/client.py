@@ -11,6 +11,7 @@ import signal
 import sys
 import time
 import traceback
+import warnings
 import aiohttp
 import asyncpg
 import discord
@@ -414,14 +415,38 @@ class NekoBot(commands.Bot, log.Loggable):
 
     async def __init_postgres_pool(self):
         """
-        Initialises the Postgres pool and then Ensures the nekozilla schema
+        Initialises the Postgres pool and then Ensures the Nekozilla schema
         exists.
         """
         # noinspection PyBroadException
         try:
+            postgres_logger = log.get_logger('NekoClient.postgres')
+
+            # Todo: find a solution to this message
+            warnings.simplefilter('ignore',
+                                  asyncpg.InterfaceWarning,
+                                  append=True)
+
+            async def setup_connection(proxy):
+                # Connection, {__str__, }
+                def listener(_, log_message):
+                    type_name = type(log_message).__name__.lower()
+                    level = common.find(
+                        lambda s: s in type_name,
+                        ('fatal', 'error', 'warn', 'info', 'debug'))
+
+                    if level is None:
+                        level = 'info'
+
+                    level = log.as_level(level)
+
+                    postgres_logger.log(level, str(log_message))
+                proxy.add_log_listener(listener)
+
             self.logger.debug('Creating postgres pool')
             self.__postgres_pool = await asyncpg.create_pool(
                 loop=self.loop,
+                setup=setup_connection,
                 **self.__db_conf
             )
         except BaseException:
@@ -438,9 +463,7 @@ class NekoBot(commands.Bot, log.Loggable):
         # initialise the postgres connector at startup, as the bot will still
         # attempt to function without it.
         # noinspection PyProtectedMember
-        if self.postgres_pool is not None and \
-                not self.postgres_pool._closed and \
-                self.postgres_pool._initialized:
+        if self.postgres_pool is not None:
             self.logger.info('Closing postgres connection.')
             await self.postgres_pool.close()
         self.logger.debug('Postgres connection was successfully destroyed.')

@@ -1,7 +1,7 @@
 import abc
 import logging
 
-__all__ = ['Loggable', 'with_verbosity']
+__all__ = ['Loggable', 'with_verbosity', 'get_logger', 'as_level']
 
 
 class Loggable(abc.ABC):
@@ -30,3 +30,18 @@ def with_verbosity(level):
         cls.logger.setLevel(level)
         return cls
     return decorator
+
+
+def get_logger(name):
+    """
+    Gets a singleton logger.
+    """
+    return Loggable.generate_logger(name)
+
+
+def as_level(name):
+    """
+    Returns the associated level with the logger level name provided.
+    """
+    # noinspection PyProtectedMember
+    return logging._nameToLevel[name.upper()]
