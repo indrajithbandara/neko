@@ -17,7 +17,7 @@ with open('neko/__init__.py') as neko_init:
             package_attrs[k] = v
 
 setup(
-    packages=['neko'],
-    dependencies=dependencies,
+    packages=['neko', 'nekocogs'],
+    requires=dependencies,
     **package_attrs,
 )
