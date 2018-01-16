@@ -100,7 +100,7 @@ class LettersCog(neko.Cog):
 
     @neko.command(
         name='big',
-        aliases=['bigd', 'bigged', 'biged', 'biggd'],
+        aliases=['bigd'],
         usage='some text',
         brief='Takes whatever you say and repeats it in BIG LETTERS!')
     async def say_big(self, ctx: neko.Context, *, string: str):
@@ -112,7 +112,7 @@ class LettersCog(neko.Cog):
 
         If a letter is not available, it is skipped.
         """
-        if ctx.invoked_with in ('bigd', 'biggd', 'biged', 'bigged'):
+        if ctx.invoked_with == 'bigd':
             try:
                 await ctx.message.delete()
             except discord.Forbidden:
@@ -126,7 +126,7 @@ class LettersCog(neko.Cog):
 
     @neko.command(
         name='whisper',
-        aliases=['whisperd', 'whispered'],
+        aliases=['whisperd'],
         usage='some text',
         brief='Takes whatever you say and repeats it in small letters.'
     )
@@ -141,13 +141,24 @@ class LettersCog(neko.Cog):
         missing characters from the font being used on your device, it will
         just output a `□` square.
         """
-        if ctx.invoked_with in ('whisperd', 'whispered'):
+        if ctx.invoked_with == 'whisperd':
             try:
                 await ctx.message.delete()
             except discord.Forbidden:
                 pass
 
         await ctx.send(''.join(_get_small_letter(c) for c in string))
+
+    @neko.command(
+        name='say',
+        brief='Take a _real_ big guess! Also, put a `d` at the end of the command '
+              'name to delete your message first...',
+        usage='Trump is a wotsit.',
+        aliases=['sayd'])
+    async def say_phrase(self, ctx, *, content: str):
+        if ctx.invoked_with == 'sayd':
+            await ctx.message.delete()
+        await ctx.send(content)
 
     @neko.command(
         name='charinfo',
