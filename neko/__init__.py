@@ -10,7 +10,7 @@ Plus... NEKO!!! >'^w^<
 
 # Expects each file to have __all__ defined
 from .book import *
-from .client import *
+from .client import NekoBot
 from .cog import *
 from .command import *
 from .common import *

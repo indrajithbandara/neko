@@ -642,7 +642,7 @@ class OwnerOnlyCog(neko.Cog):
     async def list_commands(self, ctx):
         raise NotImplementedError
 
-    @commands.command(name='uptime', brief='Says how long I '
+    @neko.command(name='uptime', brief='Says how long I '
                      'have been running for.')
     async def get_uptime(self, ctx):
       raise NotImplementedError
