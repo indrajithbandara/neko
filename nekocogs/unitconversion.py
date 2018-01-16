@@ -364,7 +364,7 @@ unit2alias = {
     Unit.meters3: ['m³', 'm3', 'meters3'],
     Unit.cubic_centimeters: ['cm³', 'cc', 'ccs'],
     Unit.liters: ['L', 'li', 'litre', 'liter', 'litres', 'liters'],
-    Unit.pint: ['pnt', 'pt', 'pnt.', 'o', 'pint', 'pints'],
+    Unit.pint: ['pnt', 'pt', 'pnt.', 'pint', 'pints'],
     Unit.uk_gal: ['gal (imperial)', 'gal', 'ukgal', 'gallon', 'gallons'],
     Unit.us_gal: ['gal (US)', 'usgal', 'US-gallon', 'US-gallons'],
     Unit.teaspoon: ['tsp', 'tspn', 'tsp.', 'teaspoon', 'teaspoons'],

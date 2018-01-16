@@ -19,7 +19,7 @@ import neko.common as common
 import neko.io as io
 import neko.log as log
 
-__all__ = ['NekoBot' 'HttpRequestError']
+__all__ = ['NekoBot', 'HttpRequestError']
 
 
 config_template = {
