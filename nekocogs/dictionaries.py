@@ -40,23 +40,6 @@ ud_thumb_url = 'https://vignette.wikia.nocookie.net/logopedia/images/a/a7' \
                '/UDAppIcon.jpg/revision/latest?cb=20170422211150 '
 
 
-def _ud_check(ctx):
-    """
-    We don't want this to be run in the normal chat, but a server I am on
-    has a channel for stuff containing foul language that is not necessarily
-    designed for NSFW content (under 18's still get access).
-
-    The (mostly crap) solution is to allow any NSFW channels access to the
-    command, and also the designated channel. I identify this using the
-    name and ID of the channel for now.
-    """
-    fc = (ctx.channel.name == 'filthy_channel'
-          and ctx.channel.id == 318007837336797185)
-    nsfw = ctx.channel.nsfw
-
-    return fc or nsfw
-
-
 @neko.inject_setup
 class DictionaryCog(neko.Cog):
     """Contains the UrbanDictionary and Wordnik implementations."""
@@ -215,7 +198,6 @@ class DictionaryCog(neko.Cog):
 
             await book.send()
 
-    @neko.check(_ud_check)
     @neko.command(name='ud', aliases=['urban'], brief='Search UD',
                   usage='|word-or-phrase')
     async def urban(self, ctx, *, phrase: str=None):
