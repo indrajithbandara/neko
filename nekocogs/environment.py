@@ -16,6 +16,7 @@ import threading
 import discord
 
 import neko
+import neko.other.perms as perms
 
 
 # Dodger blue.
@@ -41,10 +42,10 @@ async def proper_can_run(cmd, ctx):
 class HelpCog(neko.Cog):
     """Provides the inner methods with access to bot directly."""
 
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.ADD_REACTIONS |
-                   neko.Permissions.READ_MESSAGES |
-                   neko.Permissions.MANAGE_MESSAGES)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.ADD_REACTIONS |
+                   perms.Permissions.READ_MESSAGES |
+                   perms.Permissions.MANAGE_MESSAGES)
 
     def __init__(self, bot: neko.NekoBot):
         """
@@ -420,10 +421,10 @@ class ActivityThread(threading.Thread, neko.Cog):
 class OwnerOnlyCog(neko.Cog):
     """Cog containing owner-only commands, such as to restart the bot."""
 
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.ADD_REACTIONS |
-                   neko.Permissions.READ_MESSAGES |
-                   neko.Permissions.MANAGE_MESSAGES)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.ADD_REACTIONS |
+                   perms.Permissions.READ_MESSAGES |
+                   perms.Permissions.MANAGE_MESSAGES)
 
     async def __local_check(self, ctx):
         """Only the owner can run any commands or groups in this cog."""
@@ -642,10 +643,9 @@ class OwnerOnlyCog(neko.Cog):
     async def list_commands(self, ctx):
         raise NotImplementedError
 
-    @neko.command(name='uptime', brief='Says how long I '
-                     'have been running for.')
+    @neko.command(name='uptime', brief='Says how long I have been running for.')
     async def get_uptime(self, ctx):
-      raise NotImplementedError
+        raise NotImplementedError
 
 
 def setup(bot):

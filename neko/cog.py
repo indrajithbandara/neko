@@ -5,7 +5,7 @@ import inspect
 import typing
 
 import discord.ext.commands as commands
-from neko import log
+from neko.other import log
 
 __all__ = ['Cog', 'inject_setup']
 

@@ -11,7 +11,7 @@ import sys
 import discord
 
 import neko
-
+import neko.other.perms as perms
 
 api_endpoint = 'https://steamgaug.es/api/v2'
 
@@ -98,10 +98,10 @@ async def get_status(bot):
 
 
 class SteamStatusNut(neko.Cog):
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.ADD_REACTIONS |
-                   neko.Permissions.READ_MESSAGES |
-                   neko.Permissions.MANAGE_MESSAGES)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.ADD_REACTIONS |
+                   perms.Permissions.READ_MESSAGES |
+                   perms.Permissions.MANAGE_MESSAGES)
 
     @neko.command(brief='Gets the Steam API status.')
     async def steam(self, ctx):

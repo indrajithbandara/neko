@@ -16,6 +16,7 @@ import typing
 import discord
 
 import neko
+import neko.other.perms as perms
 
 
 unit_pattern = \
@@ -581,9 +582,9 @@ class AutoUnitConversionCog(neko.Cog):
     A cog that listens to incoming messages and spits out any applicable
     conversions that might exist.
     """
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.READ_MESSAGES |
-                   neko.Permissions.ADD_REACTIONS)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.READ_MESSAGES |
+                   perms.Permissions.ADD_REACTIONS)
 
     def __init__(self, bot: neko.NekoBot):
         self.bot = bot

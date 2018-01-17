@@ -1,7 +1,7 @@
 """
 Various excuses to use when stuff breaks.
 """
-from .strings import capitalise
+from neko.strings import capitalise
 import random
 
 __all__ = ['get_excuse']

@@ -22,6 +22,7 @@ import wordnik.WordApi as wordapi
 import wordnik.models.Definition as wordnik_definition
 
 import neko
+import neko.other.perms as perms
 
 
 wordnik_endpoint = 'http://api.wordnik.com/v4'
@@ -44,10 +45,10 @@ ud_thumb_url = 'https://vignette.wikia.nocookie.net/logopedia/images/a/a7' \
 class DictionaryCog(neko.Cog):
     """Contains the UrbanDictionary and Wordnik implementations."""
 
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.ADD_REACTIONS |
-                   neko.Permissions.READ_MESSAGES |
-                   neko.Permissions.MANAGE_MESSAGES)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.ADD_REACTIONS |
+                   perms.Permissions.READ_MESSAGES |
+                   perms.Permissions.MANAGE_MESSAGES)
 
     def __init__(self, bot):
         """Initialises any APIs and the cog."""

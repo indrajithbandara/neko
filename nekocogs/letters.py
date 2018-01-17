@@ -7,8 +7,10 @@ import discord
 import re
 
 import neko
+import neko.other.perms as perms
 
-__all__ = ['LettersCog', 'setup']
+
+__all__ = ['LettersCog']
 
 REG_IND_A = ord('\N{REGIONAL INDICATOR SYMBOL LETTER A}')
 COMB_ENCL_KEYCAP = '\N{COMBINING ENCLOSING KEYCAP}'
@@ -95,8 +97,8 @@ class LettersCog(neko.Cog):
     required, as I perform checks to handle if this permission is not set.
     """
 
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.READ_MESSAGES)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.READ_MESSAGES)
 
     @neko.command(
         name='big',
@@ -151,8 +153,8 @@ class LettersCog(neko.Cog):
 
     @neko.command(
         name='say',
-        brief='Take a _real_ big guess! Also, put a `d` at the end of the command '
-              'name to delete your message first...',
+        brief='Take a _real_ big guess! Also, put a `d` at the end of the '
+              'command name to delete your message first...',
         usage='Trump is a wotsit.',
         aliases=['sayd'])
     async def say_phrase(self, ctx, *, content: str):

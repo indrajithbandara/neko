@@ -11,14 +11,14 @@ import signal
 import sys
 import time
 import traceback
-import warnings
 import aiohttp
 import asyncpg
 import discord
 import discord.ext.commands as commands
 import neko.common as common
 import neko.io as io
-import neko.log as log
+import neko.other.log as log
+import neko.other.asyncpgconn as asyncpgconn
 
 __all__ = ['NekoBot', 'HttpRequestError']
 
@@ -422,12 +422,11 @@ class NekoBot(commands.Bot, log.Loggable):
         try:
             postgres_logger = log.get_logger('NekoClient.postgres')
 
-            # Todo: find a solution to this message
-            warnings.simplefilter('ignore',
-                                  asyncpg.InterfaceWarning,
-                                  append=True)
+            async def setup_connection(proxy: asyncpg.pool.PoolConnectionProxy):
+                # noinspection PyProtectedMember
+                prox_conn = proxy._con
+                assert isinstance(prox_conn, asyncpgconn.ShutdownHookConnection)
 
-            async def setup_connection(proxy):
                 # Connection, {__str__, }
                 def listener(_, log_message):
                     type_name = type(log_message).__name__.lower()
@@ -441,12 +440,19 @@ class NekoBot(commands.Bot, log.Loggable):
                     level = log.as_level(level)
 
                     postgres_logger.log(level, str(log_message))
-                proxy.add_log_listener(listener)
+
+                # Add listener, add hook to remove listener on release to
+                # prevent warnings.
+                prox_conn.add_log_listener(listener)
+                prox_conn.add_closing_listener(
+                    lambda s: s.remove_log_listener(listener)
+                )
 
             self.logger.debug('Creating postgres pool')
             self.__postgres_pool = await asyncpg.create_pool(
                 loop=self.loop,
                 setup=setup_connection,
+                connection_class=asyncpgconn.ShutdownHookConnection,
                 **self.__db_conf
             )
         except BaseException:

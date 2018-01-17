@@ -2,6 +2,7 @@
 Gets the status of various APIs for different online services.
 """
 import neko
+import neko.other.perms as perms
 
 from . import discord
 from . import steam
@@ -11,7 +12,7 @@ sub_cogs = [steam.SteamStatusNut, discord.DiscordServiceStatusNut]
 
 class ApiStatusCog(neko.Cog):
     """Collects other cogs' commands for API statuses."""
-    permissions = neko.Permissions.NONE
+    permissions = perms.Permissions.NONE
 
     def __init__(self):
         for cog in sub_cogs:

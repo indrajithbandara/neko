@@ -14,11 +14,7 @@ from .client import NekoBot
 from .cog import *
 from .command import *
 from .common import *
-from .excuses import *
 from .io import *
-from .log import *
-from .perms import *
-from .singleton import *
 from .strings import *
 
 

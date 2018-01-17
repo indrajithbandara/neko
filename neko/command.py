@@ -8,7 +8,8 @@ import typing
 
 import discord.ext.commands as commands
 
-from neko import excuses, book, strings
+from neko import book, strings
+from neko.other import excuses
 
 __all__ = ['NekoCommand', 'NekoGroup', 'command', 'group', 'NekoCommandError']
 

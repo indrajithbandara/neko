@@ -4,9 +4,10 @@ import PIL.Image as image
 import PIL.ImageDraw as draw
 
 import neko
+import neko.other.log as log
 
 
-__log = neko.Loggable.generate_logger(__name__)
+__log = log.get_logger(__name__)
 __log.info('Loading small mercator projection')
 default_map_image = image.open(
     neko.relative_to_here('res/mercator-small.png')

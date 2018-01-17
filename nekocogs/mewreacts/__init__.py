@@ -10,7 +10,7 @@ import traceback
 import discord
 
 import neko
-
+import neko.other.perms as perms
 
 # Relative to this directory.
 bindings_file = neko.relative_to_here('bindings.json')
@@ -23,10 +23,10 @@ class MewReactsCog(neko.Cog):
     """Reactions cog."""
 
     permissions = (
-            neko.Permissions.READ_MESSAGES |
-            neko.Permissions.SEND_MESSAGES |
-            neko.Permissions.MANAGE_MESSAGES |
-            neko.Permissions.ATTACH_FILES
+            perms.Permissions.READ_MESSAGES |
+            perms.Permissions.SEND_MESSAGES |
+            perms.Permissions.MANAGE_MESSAGES |
+            perms.Permissions.ATTACH_FILES
     )
 
     def __init__(self):

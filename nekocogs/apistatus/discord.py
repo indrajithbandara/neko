@@ -8,6 +8,7 @@ import typing
 import asyncio
 
 import neko
+import neko.other.perms as perms
 
 
 endpoint_base = 'https://status.discordapp.com/api'
@@ -80,10 +81,10 @@ class DiscordServiceStatusNut(neko.Cog):
     """
     Holds the service status command.
     """
-    permissions = (neko.Permissions.SEND_MESSAGES |
-                   neko.Permissions.ADD_REACTIONS |
-                   neko.Permissions.READ_MESSAGES |
-                   neko.Permissions.MANAGE_MESSAGES)
+    permissions = (perms.Permissions.SEND_MESSAGES |
+                   perms.Permissions.ADD_REACTIONS |
+                   perms.Permissions.READ_MESSAGES |
+                   perms.Permissions.MANAGE_MESSAGES)
 
     @neko.command(
         brief='Check if Discord is down (again)'
