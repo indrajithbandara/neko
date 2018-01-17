@@ -235,5 +235,10 @@ class TagCog(neko.Cog):
         This lists bot local and global tags.
         """
         async with ctx.bot.postgres_pool.acquire() as conn:
-            await ctx.send(await conn.fetch('SELECT * FROM nekozilla.tags'))
+            results = await conn.fetch(
+                'SELECT name, created FROM nekozilla.tags '
+                'WHERE guild IS NULL OR guild == ($1)',
+                ctx.guild.id
+            )
+            await ctx.send(results)
 
