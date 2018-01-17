@@ -21,6 +21,10 @@ if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help'):
 
 if len(sys.argv) > 1 and sys.argv[1] == '-U':
     base_args.append('-U')
+    
+
+# Meh
+pip.main(['install', '-U', 'https://github.com/rapptz/discord.py/zipball/rewrite'])
 
 
 with open('dependencies.txt') as fp:
