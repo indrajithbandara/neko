@@ -50,10 +50,11 @@ class TagCog(neko.Cog):
     async def _del_msg_soon(send_msg=None, resp_msg=None):
         await asyncio.sleep(5)
 
-        for x in (send_msg, resp_msg):
+        # Reverse delete.
+        for x in (resp_msg, send_msg):
             if isinstance(x, neko.Context):
                 x = x.message
-            asyncio.ensure_future(x.delete())
+            await x.delete()
 
     @neko.group(
         name='tag',

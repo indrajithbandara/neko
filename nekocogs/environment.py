@@ -646,7 +646,7 @@ class OwnerOnlyCog(neko.Cog):
 
     @neko.command(name='uptime', brief='Says how long I have been running for.')
     async def get_uptime(self, ctx):
-        raise NotImplementedError
+        await neko.PaginatedBook(ctx=ctx, title='Cabbage farmers').send()
 
 
 def setup(bot):
