@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS tags (
   -- Snowflake; if null we assume a global tag.
   guild          BIGINT         ,
 
+  -- Whether the tag is considered NSFW.
+  is_nsfw        BOOLEAN        DEFAULT FALSE,
+
   -- Tag content. Allow up to 1800 characters.
   content        VARCHAR(1800)  CONSTRAINT not_whitespace_cont CHECK (
                                   TRIM(content) <> ''

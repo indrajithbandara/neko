@@ -24,11 +24,12 @@ class RngCog(neko.Cog):
             args = neko.parse_quotes(args)
 
         if len(args) <= 1:
-            await ctx.send('Come on. Like I can decide on something from _that_'
-                           ' input..!')
+            raise neko.NekoCommandError('Come on. Like I can decide on '
+                                        'something from _that_ input..!')
         elif len(set(args)) != len(args):
-            await ctx.send('Seriously? You put the _same thing_ multiple times!'
-                           ' I ain\'t here to sanitise no inputs!')
+            raise neko.NekoCommandError('Seriously? You put the _same thing_ '
+                                        'multiple times! I ain\'t here to ' 
+                                        'sanitise no inputs!')
         else:
             await ctx.send(random.choice(args))
 

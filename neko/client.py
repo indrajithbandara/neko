@@ -429,17 +429,21 @@ class NekoBot(commands.Bot, log.Loggable):
 
                 # Connection, {__str__, }
                 def listener(_, log_message):
-                    type_name = type(log_message).__name__.lower()
+                    type_name = type(log_message).__name__
                     level = common.find(
-                        lambda s: s in type_name,
+                        lambda s: s in type_name.lower(),
                         ('fatal', 'error', 'warn', 'info', 'debug'))
 
                     if level is None:
                         level = 'info'
+                    elif level == 'fatal' or level == 'error':
+                        level = 'warning'
 
                     level = log.as_level(level)
 
-                    postgres_logger.log(level, str(log_message))
+                    msg = f'{type_name}: {log_message}'
+
+                    postgres_logger.log(level, msg)
 
                 # Add listener, add hook to remove listener on release to
                 # prevent warnings.

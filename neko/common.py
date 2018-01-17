@@ -1,6 +1,7 @@
 """
 Contains common helper methods and definitions
 """
+import asyncio
 import inspect
 import random
 import sys
@@ -40,17 +41,35 @@ def find(predicate: typing.Callable,
 
 
 async def async_find(predicate: typing.Callable,
-                     iterable: typing.Iterable):
+                     iterable: typing.Union[
+                         typing.AsyncIterable,
+                         typing.Iterable
+                     ]):
     """
     Finds the first element in an iterable matching a predicate.
 
+    This is slower than ``find``, but it allows for an async-marked predicate
+    and awaitable elements in iterables. It also accepts iterable being
+    an async iterator, which is rather classy, I would say.
+
     :param predicate: predicate that returns true for any match.
-    :param iterable: iterable to iterate over (must be a coroutine)
+    :param iterable: iterable to iterate over (must be a coroutine
     :return: the first match; None if there is not one available.
     """
-    for element in iterable:
-        if await predicate(element):
-            return element
+    if not is_coroutine(predicate):
+        predicate = asyncio.coroutine(predicate)
+
+    if hasattr(iterable, '__aiter__'):
+        async for element in iterable:
+            element = await element if is_coroutine(element) else element
+            if await predicate(element):
+                return element
+    else:
+        for element in iterable:
+            element = await element if is_coroutine(element) else element
+            if await predicate(element):
+                return element
+
     return None
 
 

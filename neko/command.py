@@ -55,11 +55,15 @@ class CommandMixin(abc.ABC):
             error = error.__cause__ if error.__cause__ else error
 
             if not isinstance(error, NotImplementedError):
-                title = 'Whoops! Something went wrong!'
+                if isinstance(error, Warning):
+                    title = str(error)
+                else:
+                    title = 'Whoops! Something went wrong!'
                 description = strings.capitalise(excuses.get_excuse())
             else:
                 title = 'Road under construction. Follow diversion.'
-                description = 'Seems this feature isn\'t finished! Hassle Espy to get on it.'
+                description = ('Seems this feature isn\'t finished! Hassle '
+                               'Espy to get on it. ')
 
             embed = book.Page(
                 title=title,
@@ -69,6 +73,9 @@ class CommandMixin(abc.ABC):
 
             if isinstance(error, NekoCommandError):
                 embed.set_footer(text=str(error))
+            elif isinstance(error, Warning):
+                # Don't add footer.
+                pass
             else:
                 # We only show info like the cog name, etc if we are not a
                 # neko command error. Likewise, we only dump a traceback if the

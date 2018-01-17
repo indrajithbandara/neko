@@ -2,13 +2,14 @@
 String manipulations.
 """
 import asyncio
+import collections
 import re
-
+import typing
 
 __all__ = [
     'capitalise', 'pascal_to_space', 'underscore_to_space', 'pluralise',
     'remove_single_lines', 'replace_recursive', 'ellipses', 'pluralize',
-    'capitalize', 'parse_quotes'
+    'capitalize', 'parse_quotes', 'PatternCollection'
 ]
 
 
@@ -328,3 +329,68 @@ def parse_quotes(string, quotes=None, delimit_on=None):
         raise ValueError(f'Expected closing {stack} character.')
 
     return strs
+
+
+class PatternCollection(collections.MutableSet):
+    """
+    Implements a set of patterns. These can be strings or regular expressions.
+    """
+    def __init__(self, *args):
+        self._set = set()
+        [self.add(arg) for arg in args]
+
+    class _MatchableString:
+        """Wrapper for a string that has a match method."""
+        def __init__(self, string):
+            self.string = string
+
+        def __get__(self, instance, owner):
+            return self.string
+
+        def __missing__(self, key):
+            return getattr(self.string, key)
+
+        def __str__(self):
+            return self.string
+
+        def __repr__(self):
+            return self.string
+
+        # Compatibility with regex pattern object.
+
+        @property
+        def pattern(self):
+            return self.string
+
+        def match(self, other):
+            return other == self.string
+
+    def add(self, value):
+        assert isinstance(value, (str, type(re.compile(''))))
+        if isinstance(value, str):
+            value = self._MatchableString(value)
+        self._set.add(value)
+
+    def discard(self, value):
+        self._set.discard(value)
+
+    def __iter__(self):
+        return iter(self._set)
+
+    def __contains__(self, item):
+        for patt in self:
+            if patt.match(item):
+                return True
+        return False
+
+    def __eq__(self, other):
+        return all(other_el in self for other_el in other)
+
+    def __str__(self):
+        return ', '.join(str(pat.pattern) for pat in self)
+
+    def __len__(self):
+        return len(self._set)
+
+    def __missing__(self, key):
+        return getattr(self._set, key)

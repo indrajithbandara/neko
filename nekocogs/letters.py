@@ -199,7 +199,8 @@ class LettersCog(neko.Cog):
             await ctx.send('\n'.join(_unicode_table(character)))
 
         except KeyError:
-            await ctx.send('No result.')
+            raise neko.NekoCommandError('No character exists for that '
+                                        'description.')
 
     @neko.command(
         name='charcode',

@@ -1,7 +1,7 @@
 """
 Tag implementation using PostgreSQL backend for storage and management.
 """
-import typing
+import re
 
 import discord.ext.commands as commands
 
@@ -14,7 +14,7 @@ async def _is_owner_check(ctx):
 
 # Allows me to enable/disable all commands in this cog if the
 # database is not ready for production use.
-should_enable = False
+should_enable = True
 
 
 @neko.inject_setup
@@ -22,6 +22,11 @@ class TagCog(neko.Cog):
     """
     Holds the command implementations for tags.
     """
+    invalid_tag_names = neko.PatternCollection(
+        'global', 'add', 'remove', 'inspect', 'edit', 'my', 'list',
+        re.compile(r'!.*', re.DOTALL)
+    )
+
     def __init__(self, bot: neko.NekoBot):
         if bot.postgres_pool is None:
             raise RuntimeError('Dropping this cog. No database available.')
@@ -44,12 +49,20 @@ class TagCog(neko.Cog):
                 await conn.execute(fp.read())
         self.logger.info('Tables should now exist if they didn\'t already.')
 
-    @property
-    def invalid_tag_names(self) -> typing.Iterable[str]:
-        """
-        Gets a frozenset of invalid tag names we disallow.
-        """
-        return frozenset({'add', 'remove', 'global', 'my', 'list', 'edit'})
+    @staticmethod
+    async def _get_global(conn, tag_name):
+        return await conn.fetch(
+            'SELECT * FROM nekozilla.tags WHERE name = ($1) '
+            'AND guild IS NULL;',
+            tag_name)
+
+    @staticmethod
+    async def _get_local(conn, tag_name, guild_id):
+        return await conn.fetch(
+            'SELECT * FROM nekozilla.tags WHERE name = ($1) AND '
+            '(guild IS NULL or guild = ($2));',
+            tag_name,
+            guild_id)
 
     @neko.group(
         name='tag',
@@ -61,8 +74,28 @@ class TagCog(neko.Cog):
         """
         Displays the tag if it can be found. The local tags are searched
         first, and then the global tags.
+
+        If we start the tag with an "!", then we try the global tags list first
+        instead.
         """
-        print('tag')
+        local_first = False
+        if tag_name.startswith('!'):
+            tag_name = tag_name[1:]
+            local_first = True
+
+        async with self.bot.postgres_pool.acquire() as conn:
+
+            order = [self._get_local(conn, tag_name, ctx.guild.id),
+                     self._get_global(conn, tag_name)]
+            if not local_first:
+                order = reversed(order)
+
+            result = await neko.async_find(lambda r: r is not None, order)
+
+        if not result:
+            raise neko.NekoCommandError('No tag found with that name.')
+        else:
+            raise NotImplementedError()
 
     @tag_group.command(
         name='inspect',
@@ -90,14 +123,14 @@ class TagCog(neko.Cog):
         tag_name = tag_name.lower()
 
         async with self.bot.postgres_pool.acquire() as conn:
-            # First see if the tag already exists.
-            existing = await conn.fetch(
-                'SELECT * FROM nekozilla.tags WHERE name = ($1) AND '
-                '(guild IS NULL or guild = ($2));', tag_name, ctx.guild.id)
+            # First, make sure tag is valid.
+            if tag_name in self.invalid_tag_names:
+                raise neko.NekoCommandError('Invalid tag name')
+
+            # Next, see if the tag already exists.
+            existing = await self._get_local(conn, tag_name, ctx.guild.id)
             if len(existing) > 0:
                 raise neko.NekoCommandError('Tag already exists')
-            elif tag_name in self.invalid_tag_names:
-                raise neko.NekoCommandError('Invalid tag name')
             else:
                 result = await conn.execute(
                     'INSERT INTO nekozilla.tags (name, created, author, guild, '
@@ -120,15 +153,14 @@ class TagCog(neko.Cog):
         tag_name = tag_name.lower()
 
         async with self.bot.postgres_pool.acquire() as conn:
-            # First see if the tag already exists.
-            existing = await conn.fetch(
-                'SELECT * FROM nekozilla.tags WHERE name = ($1) '
-                'AND guild IS NULL;',
-                tag_name)
+            # First see if the tag is valid
+            if tag_name in self.invalid_tag_names:
+                raise neko.NekoCommandError('Invalid tag name')
+
+            # Next, see if the tag already exists
+            existing = await self._get_global(conn, tag_name)
             if len(existing) > 0:
                 raise neko.NekoCommandError('Tag already exists')
-            elif tag_name in self.invalid_tag_names:
-                raise neko.NekoCommandError('Invalid tag name')
             else:
                 result = await conn.execute(
                     'INSERT INTO nekozilla.tags (name, created, author, guild, '
@@ -177,7 +209,8 @@ class TagCog(neko.Cog):
         invoke_without_command=True)
     async def tag_edit(self, ctx, tag_name, *, new_content):
         """
-        Edits a local tag. Only accessible if you already own the tag.
+        Edits a local tag. Only accessible if you already own the tag, or you
+        are the bot owner.
         """
         print('tag edit')
 
@@ -201,5 +234,6 @@ class TagCog(neko.Cog):
         """
         This lists bot local and global tags.
         """
-        print('tag list')
+        async with ctx.bot.postgres_pool.acquire() as conn:
+            await ctx.send(await conn.fetch('SELECT * FROM nekozilla.tags'))
 
