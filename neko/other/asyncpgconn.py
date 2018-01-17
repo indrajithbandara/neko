@@ -51,7 +51,7 @@ class ShutdownHookConnection(asyncpg.Connection):
     async def execute(self, *args, **kwargs):
         args_str = 'in execute:\n' + '\n' + ', '.join([
             ', '.join(str(arg) for arg in args),
-            ', '.join(f'{k}={v}' for k, v in kwargs)
+            ', '.join(f'{k}={v}' for k, v in kwargs.items())
         ]) + '\n' + '*' * 80
 
         self.logger.debug(args_str)
