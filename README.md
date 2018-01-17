@@ -13,6 +13,7 @@ A small bot for Discord servers to provide some useful fun commands and features
 - [`wordnik-py3`](https://github.com/wordnik/wordnik-python3) - Wordnik Python3 API wrapper.\*
 
 <small>*\* These dependencies are available directly from PyPI using the `pip` command*</small>
+
 <small>*\*\* At the current time, this library is __not__ available on PyPI. See following section*</small>
 
 ### Installing Discord.py
