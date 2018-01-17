@@ -4,7 +4,7 @@ A small bot for Discord servers to provide some useful fun commands and features
 ## Dependencies
 
 ### Python 3.6.4
-- [`Discord.py`](https://github.com/rapptz/discord.py) (rewrite) - Main API library for interacting 
+- [`Discord.py`](https://github.com/rapptz/discord.py/tree/rewrite) (rewrite branch) - Main API library for interacting 
     with the Discord Bot Gateway.\*\*
 - [`aiofiles`](https://github.com/Tinche/aiofiles) - Asyncio integration for non-blocking file IO.\*
 - [`aiohttp`](https://github.com/aio-libs/aiohttp) - Asyncio integration for HTTP requests.\*
