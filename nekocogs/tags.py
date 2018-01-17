@@ -3,13 +3,10 @@ Tag implementation using PostgreSQL backend for storage and management.
 """
 import re
 
+import asyncio
 import discord.ext.commands as commands
 
 import neko
-
-
-async def _is_owner_check(ctx):
-    return await ctx.bot.is_owner(ctx.author)
 
 
 # Allows me to enable/disable all commands in this cog if the
@@ -50,25 +47,18 @@ class TagCog(neko.Cog):
         self.logger.info('Tables should now exist if they didn\'t already.')
 
     @staticmethod
-    async def _get_global(conn, tag_name):
-        return await conn.fetch(
-            'SELECT * FROM nekozilla.tags WHERE name = ($1) '
-            'AND guild IS NULL;',
-            tag_name)
+    async def _del_msg_soon(send_msg=None, resp_msg=None):
+        await asyncio.sleep(5)
 
-    @staticmethod
-    async def _get_local(conn, tag_name, guild_id):
-        return await conn.fetch(
-            'SELECT * FROM nekozilla.tags WHERE name = ($1) AND '
-            '(guild IS NULL or guild = ($2));',
-            tag_name,
-            guild_id)
+        for x in (send_msg, resp_msg):
+            if isinstance(x, neko.Context):
+                x = x.message
+            asyncio.ensure_future(x.delete())
 
     @neko.group(
         name='tag',
         brief='Text tags that can be defined and retrieved later',
         usage='tag_name',
-        enabled=should_enable,
         invoke_without_command=True)
     async def tag_group(self, ctx, tag_name):
         """
@@ -84,36 +74,72 @@ class TagCog(neko.Cog):
             local_first = True
 
         async with self.bot.postgres_pool.acquire() as conn:
+            g = 'SELECT content FROM nekozilla.tags WHERE LOWER(name) = ($1) '
+            async with ctx.channel.typing():
+                if not ctx.channel.nsfw:
+                    g += 'AND is_nsfw = FALSE '
 
-            order = [self._get_local(conn, tag_name, ctx.guild.id),
-                     self._get_global(conn, tag_name)]
-            if not local_first:
-                order = reversed(order)
+                g += 'AND guild '
 
-            result = await neko.async_find(lambda r: r is not None, order)
+                getter_l = g + '= ($2);'
+                getter_g = g + 'IS NULL;'
 
-        if not result:
-            raise neko.NekoCommandError('No tag found with that name.')
-        else:
-            raise NotImplementedError()
+                # await ctx.send('\n'.join([getter_l, getter_g]))
+
+                res_l = await conn.fetch(getter_l, tag_name, ctx.guild.id)
+                res_g = await conn.fetch(getter_g, tag_name)
+
+                results = [*res_l, *res_g] if local_first else [*res_g, *res_l]
+
+            if not results:
+                raise neko.NekoCommandError('No tag found with that name.')
+            else:
+                await ctx.send(results.pop(0)['content'])
 
     @tag_group.command(
         name='inspect',
         brief='Inspects a given tag, showing who made it.',
-        usage='tag_name',
-        enabled=False)
+        usage='tag_name')
     @commands.is_owner()
     async def tag_inspect(self, ctx, tag_name):
         """
         This is only runnable by the bot owner.
         """
-        print('tag inspect')
+        async with ctx.bot.postgres_pool.acquire() as conn:
+            book = neko.Book(ctx)
+            async with ctx.typing():
+                tag_name = tag_name.lower()
+                results = await conn.fetch(
+                    'SELECT * FROM nekozilla.tags WHERE LOWER(name) = ($1);',
+                    tag_name)
+
+                if not results:
+                    raise neko.NekoCommandError('No results.')
+
+                for result in results:
+                    data = dict(result)
+                    content = data.pop('content')
+
+                    page = neko.Page(
+                        title=data.pop('name'),
+                        description=content
+                    )
+
+                    page.add_field(
+                        name='Attributes',
+                        value='\n'.join(
+                            f'**{k}**: `{v}`' for k, v in data.items()
+                        )
+                    )
+
+                    book += page
+
+            await book.send()
 
     @tag_group.group(
         name='add',
         brief='Add a local tag for this server',
         usage='tag_name content',
-        enabled=should_enable,
         invoke_without_command=True)
     async def tag_add(self, ctx, tag_name, *, content):
         """
@@ -122,29 +148,42 @@ class TagCog(neko.Cog):
         """
         tag_name = tag_name.lower()
 
+        # First, make sure tag is valid.
+        if tag_name in self.invalid_tag_names:
+            raise neko.NekoCommandError('Invalid tag name')
+
         async with self.bot.postgres_pool.acquire() as conn:
-            # First, make sure tag is valid.
-            if tag_name in self.invalid_tag_names:
-                raise neko.NekoCommandError('Invalid tag name')
+            async with ctx.channel.typing():
+                # Next, see if the tag already exists.
+                existing = await conn.fetch(
+                    '''
+                    SELECT 1 FROM nekozilla.tags
+                    WHERE LOWER(name) = ($1) AND guild = ($2);
+                    ''',
+                    tag_name, ctx.guild.id
+                )
+                if len(existing) > 0:
+                    raise neko.NekoCommandError('Tag already exists')
 
-            # Next, see if the tag already exists.
-            existing = await self._get_local(conn, tag_name, ctx.guild.id)
-            if len(existing) > 0:
-                raise neko.NekoCommandError('Tag already exists')
-            else:
-                result = await conn.execute(
-                    'INSERT INTO nekozilla.tags (name, created, author, guild, '
-                    'content) VALUES (($1), NOW(), ($2), ($3), ($4));',
-                    tag_name, ctx.author.id, ctx.guild.id, content)
+                await conn.execute(
+                    '''
+                    INSERT INTO nekozilla.tags 
+                        (name, author, guild, is_nsfw, content) 
+                    VALUES (($1), ($2), ($3), ($4), ($5));
+                    ''',
+                    tag_name,
+                    ctx.author.id,
+                    ctx.guild.id,
+                    ctx.channel.nsfw,
+                    content
+                )
 
-                # TODO: check what result is and what to do with it
-                await ctx.message.add_reaction('\N{OK HAND SIGN}')
+            await self._del_msg_soon(ctx, await ctx.send('Added.'))
 
     @tag_add.command(
         name='global',
         brief='Adds a tag globally.',
-        usage='tag_name content',
-        enabled=should_enable)
+        usage='tag_name content')
     @commands.is_owner()
     async def tag_add_global(self, ctx, tag_name, *, content):
         """
@@ -152,54 +191,137 @@ class TagCog(neko.Cog):
         """
         tag_name = tag_name.lower()
 
+        # First, make sure tag is valid.
+        if tag_name in self.invalid_tag_names:
+            raise neko.NekoCommandError('Invalid tag name')
+
         async with self.bot.postgres_pool.acquire() as conn:
-            # First see if the tag is valid
-            if tag_name in self.invalid_tag_names:
-                raise neko.NekoCommandError('Invalid tag name')
+            async with ctx.channel.typing():
+                # Next, see if the tag already exists.
+                existing = await conn.fetch(
+                    '''
+                    SELECT 1 FROM nekozilla.tags
+                    WHERE LOWER(name) = ($1) AND guild IS NULL;
+                    ''',
+                    tag_name
+                )
+                if len(existing) > 0:
+                    raise neko.NekoCommandError('Tag already exists')
 
-            # Next, see if the tag already exists
-            existing = await self._get_global(conn, tag_name)
-            if len(existing) > 0:
-                raise neko.NekoCommandError('Tag already exists')
-            else:
-                result = await conn.execute(
-                    'INSERT INTO nekozilla.tags (name, created, author, guild, '
-                    'content) VALUES (($1), NOW(), ($2), NULL, ($3));',
-                    tag_name, ctx.author.id, content)
+                await conn.execute(
+                    '''
+                    INSERT INTO nekozilla.tags 
+                        (name, author, is_nsfw, content)
+                    VALUES (($1), ($2), ($3), ($4))
+                    ''',
+                    tag_name,
+                    ctx.author.id,
+                    ctx.channel.nsfw,
+                    content)
 
-                # TODO: check what result is and what to do with it
-                await ctx.message.add_reaction('\N{OK HAND SIGN}')
+            await self._del_msg_soon(ctx, await ctx.send('Added globally.'))
+
+    @classmethod
+    async def _delete(cls, tag_name, ctx, is_global=False):
+        # First validate the tag name
+        if tag_name in cls.invalid_tag_names:
+            raise neko.NekoCommandError('Invalid tag name')
+        else:
+            async with ctx.bot.postgres_pool.acquire() as conn:
+                async with ctx.channel.typing():
+                    # Cast to an int and then to a string
+                    g = ctx.guild.id
+                    if ctx.author.id == ctx.bot.owner_id:
+                        existing = await conn.fetch(
+                            f'''
+                            SELECT pk FROM nekozilla.tags
+                            WHERE guild
+                                {"IS NULL" if is_global else "= ($1)"}
+                                AND LOWER(name) = LOWER(($2))
+                            LIMIT 1
+                            ''',
+                            g, tag_name
+                        )
+                    else:
+                        existing = await conn.fetch(
+                            f'''
+                            SELECT pk FROM nekozilla.tags
+                            WHERE guild
+                                {"IS NULL" if is_global else "= ($1)"}
+                                AND LOWER(name) = LOWER(($2))
+                                AND author = ($3)
+                            LIMIT 1
+                            ''',
+                            g, tag_name, ctx.author.id
+                        )
+
+                    if existing:
+                        existing = existing.pop(0)['pk']
+                    else:
+                        raise neko.NekoCommandError('No matching tag found.')
+
+                    await conn.execute(
+                        'DELETE FROM nekozilla.tags WHERE pk = ($1)',
+                        existing
+                    )
+
+                await cls._del_msg_soon(
+                    ctx,
+                    await ctx.send(
+                        f'Removed{" globally" if is_global else ""}.'
+                    )
+                )
 
     @tag_group.group(
         name='remove',
         brief='Removes a tag from the local server.',
         usage='tag_name',
-        enabled=should_enable,
         invoke_without_command=True)
     async def tag_remove(self, ctx, tag_name):
         """
         Removes a local tag. You can only do this if you own the tag.
         """
-        print('tag remove')
+        await self._delete(tag_name, ctx)
 
     @tag_remove.command(
         name='global',
         brief='Deletes a global tag.',
-        usage='tag_name',
-        enabled=should_enable)
+        usage='tag_name')
     @commands.is_owner()
     async def tag_remove_global(self, ctx, tag_name):
         """
         Removes a global tag. Only accessible by the bot owner.
         """
-        print('tag remove global')
+        await self._delete(tag_name, ctx, True)
 
     @tag_group.command(
         name='my',
-        brief='Lists tags that _you_ own.',
-        enabled=should_enable)
+        brief='Lists tags that _you_ own.')
     async def tag_my(self, ctx):
-        print('tag my')
+        """Shows tags you own globally and in this guild."""
+        async with ctx.bot.postgres_pool.acquire() as conn:
+            async with ctx.typing():
+                results = await conn.fetch(
+                    '''
+                    SELECT name, is_nsfw, guild
+                    FROM nekozilla.tags
+                    WHERE author = ($1) AND (guild IS NULL OR guild = ($2))
+                    ORDER BY name, created;
+                    ''', ctx.author.id, ctx.guild.id)
+
+                book = neko.PaginatedBook(
+                    ctx=ctx,
+                    title='My Tags',
+                    max_lines=10)
+
+                for result in results:
+                    name = f'`{result["name"]}`'
+                    if result['is_nsfw']:
+                        name = f'_{name}_'
+                    name += ' in this guild' if result['guild'] else ' globally'
+                    book.add_line(name)
+
+            await book.send()
 
     @tag_group.group(
         name='edit',
@@ -212,7 +334,7 @@ class TagCog(neko.Cog):
         Edits a local tag. Only accessible if you already own the tag, or you
         are the bot owner.
         """
-        print('tag edit')
+        raise NotImplementedError
 
     @tag_edit.command(
         name='global',
@@ -224,21 +346,22 @@ class TagCog(neko.Cog):
         """
         Edits a global tag. Only accessible by the bot owner.
         """
-        print('tag edit global')
+        raise NotImplementedError
 
     @tag_group.command(
         name='list',
-        brief='Lists all available tags.',
-        enabled=should_enable)
+        brief='Lists all available tags.')
     async def tag_list(self, ctx):
         """
         This lists bot local and global tags.
         """
         async with ctx.bot.postgres_pool.acquire() as conn:
             results = await conn.fetch(
-                'SELECT name, created FROM nekozilla.tags '
-                'WHERE guild IS NULL OR guild == ($1)',
+                '''
+                SELECT name, created, is_nsfw, guild IS NULL as is_global
+                FROM nekozilla.tags
+                WHERE guild IS NULL OR guild = ($1)
+                ''',
                 ctx.guild.id
             )
             await ctx.send(results)
-

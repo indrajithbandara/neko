@@ -474,7 +474,7 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.bot.do_job_in_pool(ctx.bot.load_extension, fqn)
         delta = (time.time() - start) * 1e4
 
-        await ctx.send(f'Loaded `{fqn}` successfully in {delta:.3}ms')
+        await ctx.send(f'Loaded `{fqn}` successfully in {delta:.3f}ms')
 
     @command_grp.command(
         brief='Unloads a given extension from the bot (and any related cogs).',
@@ -509,7 +509,7 @@ class OwnerOnlyCog(neko.Cog):
         delta = (time.time() - start) * 1e4
 
         await ctx.send(f'Unloaded `{fqn}` successfully via '
-                       f'{func.__name__} in {delta:.3}ms')
+                       f'{func.__name__} in {delta:.3f}ms')
 
     @command_grp.command(brief='Sets the bot client verbosity (ignores cogs).')
     async def set_bot_verbosity(self, ctx, verbosity='INFO'):
@@ -533,6 +533,7 @@ class OwnerOnlyCog(neko.Cog):
 
             logging.getLogger('discord').setLevel(verbosity)
             print('SET VERBOSITY TO', verbosity, file=sys.stderr)
+            await ctx.message.add_reaction('\N{OK HAND SIGN}')
 
     @command_grp.command(brief='Sets the logger verbosity for a loaded cog.')
     async def set_cog_verbosity(self, ctx, cog_name, verbosity='INFO'):

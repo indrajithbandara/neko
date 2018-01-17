@@ -453,11 +453,13 @@ class PaginatedBook(Book):
                  prefix='',
                  suffix='',
                  max_size=1990,
+                 max_lines=None,
                  ctx: commands.Context,
                  title: str):
         super().__init__(ctx)
         self.paginator = commands.Paginator(prefix, suffix, max_size)
         self.title = title
+        self.max_lines = None
 
     def add_line(self, content='', follow_with_empty=False):
         """
@@ -474,6 +476,12 @@ class PaginatedBook(Book):
                    - len(self.paginator.prefix) - len(self.paginator.suffix))
 
         while len(content) >= max_len:
+            if self.max_lines is not None:
+                # noinspection PyProtectedMember
+                if self.paginator._current_page.count('\n') > self.max_lines:
+                    # Close the page early.
+                    self.paginator.close_page()
+
             index = max_len - 1
             while index >= 0 and not content[index].isspace():
                 index -= 1
