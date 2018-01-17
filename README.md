@@ -3,6 +3,8 @@ A small bot for Discord servers to provide some useful fun commands and features
 
 ## Dependencies
 
+To install and set up any dependencies that do not need custom configuration, run the `install-dependencies` script.
+
 ### Python 3.6.4
 - [`Discord.py`](https://github.com/rapptz/discord.py/tree/rewrite) (rewrite branch) - Main API library for interacting 
     with the Discord Bot Gateway.\*\*
