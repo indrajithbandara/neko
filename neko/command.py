@@ -46,16 +46,23 @@ class CommandMixin(abc.ABC):
             await ctx.message.add_reaction({
                 commands.CheckFailure: '\N{NO ENTRY SIGN}',
                 commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
-                commands.CommandOnCooldown: '\N{ALARM CLOCK}'
+                commands.CommandOnCooldown: '\N{ALARM CLOCK}',
             }[type(error)])
         except KeyError:
             # If we haven't specified a reaction, we instead do something
             # meaningful.
             error = error.__cause__ if error.__cause__ else error
 
+            if not isinstance(error, NotImplementedError):
+                title = 'Whoops! Something went wrong!'
+                description = strings.capitalise(excuses.get_excuse())
+            else:
+                title = 'Road under construction. Follow diversion.'
+                description = 'Seems this feature isn\'t finished! Hassle Espy to get on it.'
+
             embed = book.Page(
-                title='Whoops! Something went wrong!',
-                description=strings.capitalise(excuses.get_excuse()),
+                title=title,
+                description=description,
                 color=0xffbf00 if isinstance(error, Warning) else 0xff0000
             )
 
@@ -70,7 +77,12 @@ class CommandMixin(abc.ABC):
                 )
 
                 cog = strings.pascal_to_space(getattr(cog, 'name', str(cog)))
-                error_description += f' in {cog}: {str(error)}'
+                error_str = str(error).strip()
+                if error_str:
+                    error_description += f' in {cog}: {str(error)}'
+                else:
+                    error_description += f' in {cog}.'
+
                 embed.set_footer(text=error_description)
                 traceback.print_exception(
                     type(error),
