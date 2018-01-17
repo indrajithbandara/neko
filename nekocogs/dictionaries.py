@@ -83,7 +83,8 @@ class DictionaryCog(neko.Cog):
 
         # Attempt to favour gcide and wordnet, as they have better definitions
         # imho.
-        if words is None:
+        # Fixes #9
+        if not words:
             await ctx.send('I couldn\'t find a definition for that.')
         else:
 
