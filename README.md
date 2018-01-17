@@ -5,14 +5,31 @@ A small bot for Discord servers to provide some useful fun commands and features
 
 ### Python 3.6.4
 - [`Discord.py`](https://github.com/rapptz/discord.py) (rewrite) - Main API library for interacting 
-    with the Discord Bot Gateway.\*
+    with the Discord Bot Gateway.\*\*
 - [`aiofiles`](https://github.com/Tinche/aiofiles) - Asyncio integration for non-blocking file IO.\*
 - [`aiohttp`](https://github.com/aio-libs/aiohttp) - Asyncio integration for HTTP requests.\*
 - [`asyncpg`](https://github.com/MagicStack/asyncpg) - Asyncio wrapper for PostgreSQL.\*
 - [`pillow`](https://pillow.readthedocs.io/en/5.0.0/) - Python Image Library (PIL) support.\*
 - [`wordnik-py3`](https://github.com/wordnik/wordnik-python3) - Wordnik Python3 API wrapper.\*
 
-<small>*\* These dependencies are available directly from PyPi using the `pip` command*</small>
+<small>*\* These dependencies are available directly from PyPI using the `pip` command*</small>
+<small>*\*\* At the current time, this library is __not__ available on PyPI. See following section*</small>
+
+### Installing Discord.py
+
+Do __not__ run `python3.6 -m pip install discord`. This will install the __wrong__ version.
+
+Instead, run one of the following:
+```bash
+# Windows users
+py -3.6 -m pip install -U https://github.com/rapptz/discord.py/zipball/rewrite
+
+# Unix users
+python3.6 -m pip install -U git+https://github.com/rapptz/discord.py@rewrite
+
+# Scrubby Unix users without Git or Git-core (git gud --scrub)
+python3.6 -m pip install -U https://github.com/rapptz/discord.py/tarball/rewrite
+```
 
 ## Configuration
 
