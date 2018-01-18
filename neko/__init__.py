@@ -48,7 +48,7 @@ def _year():
 __author__ = 'Espeonageon'
 __license__ = 'MIT'
 __copyright__ = f'Copyright 2017-{_year()} {__author__}'
-__contributors__ = ['Espeonageon', 'Zcissors'],
+__contributors__ = ['Espeonageon', 'Zcissors']
 __thanks__ = ('Rotom, Smidgey, Purrloin, Bambi and Hal0 for putting up with '
               'my constant yammering on about code, bugs, libraries, APIs, '
               'problems, solutions, queries, Python, SQL, JSON, ..., ..., '
