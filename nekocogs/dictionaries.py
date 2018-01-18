@@ -268,4 +268,9 @@ class DictionaryCog(neko.Cog):
 
             book += page
 
-        await book.send()
+        if book.pages:
+            await book.send()
+        else:
+            await ctx.send('I couldn\'t find a definition for that.')
+
+

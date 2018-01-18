@@ -73,10 +73,7 @@ class CommandMixin(abc.ABC):
 
             if isinstance(error, NekoCommandError):
                 embed.set_footer(text=str(error))
-            elif isinstance(error, Warning):
-                # Don't add footer.
-                pass
-            else:
+            elif not isinstance(error, Warning):
                 # We only show info like the cog name, etc if we are not a
                 # neko command error. Likewise, we only dump a traceback if the
                 # latter holds.

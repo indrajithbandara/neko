@@ -130,6 +130,11 @@ class HelpCog(neko.Cog):
         page.set_thumbnail(url=self.bot.user.avatar_url)
 
         page.add_field(
+            name='Notable contributors',
+            value=', '.join(neko.__contributors__)
+        )
+
+        page.add_field(
             name='Repository',
             value=neko.__repository__
         )
@@ -474,7 +479,7 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.bot.do_job_in_pool(ctx.bot.load_extension, fqn)
         delta = (time.time() - start) * 1e4
 
-        await ctx.send(f'Loaded `{fqn}` successfully in {delta:.3}ms')
+        await ctx.send(f'Loaded `{fqn}` successfully in {delta:.3f}ms')
 
     @command_grp.command(
         brief='Unloads a given extension from the bot (and any related cogs).',
@@ -509,7 +514,7 @@ class OwnerOnlyCog(neko.Cog):
         delta = (time.time() - start) * 1e4
 
         await ctx.send(f'Unloaded `{fqn}` successfully via '
-                       f'{func.__name__} in {delta:.3}ms')
+                       f'{func.__name__} in {delta:.3f}ms')
 
     @command_grp.command(brief='Sets the bot client verbosity (ignores cogs).')
     async def set_bot_verbosity(self, ctx, verbosity='INFO'):
@@ -533,6 +538,7 @@ class OwnerOnlyCog(neko.Cog):
 
             logging.getLogger('discord').setLevel(verbosity)
             print('SET VERBOSITY TO', verbosity, file=sys.stderr)
+            await ctx.message.add_reaction('\N{OK HAND SIGN}')
 
     @command_grp.command(brief='Sets the logger verbosity for a loaded cog.')
     async def set_cog_verbosity(self, ctx, cog_name, verbosity='INFO'):
@@ -645,7 +651,7 @@ class OwnerOnlyCog(neko.Cog):
 
     @neko.command(name='uptime', brief='Says how long I have been running for.')
     async def get_uptime(self, ctx):
-        raise NotImplementedError
+        await neko.PaginatedBook(ctx=ctx, title='Cabbage farmers').send()
 
 
 def setup(bot):

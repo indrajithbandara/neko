@@ -80,9 +80,9 @@ def _unicode_table(characters):
         name = unicodedata.name(char)
         category = unicodedata.category(char)
         decimal = ord(char)
-        hexadecimal = f'U+{hex(decimal)[2:]}'
+        hexd = f'U+{hex(decimal)[2:]}'
 
-        line = f'`{i+1:02}  {category}  {hexadecimal:>10} {name}`  {char} '
+        line = f'`{i+1:02}  {category}  {hexd:>10} {name}  {char}`  {char}'
         results.append(line)
 
     return results

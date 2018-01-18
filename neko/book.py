@@ -25,8 +25,8 @@ DEV = False
 # in asyncio.ensure_future. This is a pain when trying to debug
 # any issues, as we cannot get a full traceback.
 if DEV:
-    def ensure_future(coro):
-        return asyncio.gather(coro, return_exceptions=False)
+    def ensure_future(coro, *_):
+        return coro
 else:
     ensure_future = asyncio.ensure_future
 
@@ -256,7 +256,21 @@ class Book:
         degrade performance.
         """
         if len(self.pages) == 0:
-            self.pages.append(Page(title='No data!'))
+            page = Page(
+                title='*HISS*',
+                description='Seems there is nothing to see here. This is '
+                            'probably an oversight, or just laziness on '
+                            'the developer\'s behalf.\n\nYou know what? I '
+                            'will go punish him right now.\n\n'
+                            '*Shotgun barrel clicks*')
+
+            page.set_footer(text='No nekos were hurt in the making of this '
+                                 'embed. A duck was shot, and a cat got sick, '
+                                 'but that was about it.')
+
+            self.pages.append(
+                page
+            )
 
         ensure_future(self._send_loop())
 
@@ -422,8 +436,8 @@ class Book:
 
         @Button('\N{PUT LITTER IN ITS PLACE SYMBOL}')
         async def close_and_delete(b: Book, __: Page):
-            await b.context_invoked_from.message.delete()
             await b.response_message.delete()
+            await b.context_invoked_from.message.delete()
 
         return [
             first_page,
@@ -446,6 +460,17 @@ class PaginatedBook(Book):
     The outer book wrapper can still have pages added to it as normal, however,
     the lines and paragraphs added will be appended as pages to the end of the
     book when it is sent.
+
+    :param prefix: the prefix to each page. Defaults to nothing.
+    :param suffix: the suffix to each page. Defaults to nothing.
+    :param max_size: the max character count to allow per page. Discord limits
+            this anyway (read the API documentation for embed limits). This
+            defaults to 1900
+    :param max_lines: the max number of lines to allow per page to limit the
+            height of embeds. This is not set by default.
+    :param ctx: the command context. A required ``keyword`` argument.
+    :param title: the title to add to the top of paginated pages. This does not
+            affect embeds.
     """
 
     def __init__(self,
@@ -453,11 +478,13 @@ class PaginatedBook(Book):
                  prefix='',
                  suffix='',
                  max_size=1990,
+                 max_lines=None,
                  ctx: commands.Context,
                  title: str):
         super().__init__(ctx)
         self.paginator = commands.Paginator(prefix, suffix, max_size)
         self.title = title
+        self.max_lines = max_lines
 
     def add_line(self, content='', follow_with_empty=False):
         """
@@ -474,6 +501,12 @@ class PaginatedBook(Book):
                    - len(self.paginator.prefix) - len(self.paginator.suffix))
 
         while len(content) >= max_len:
+            if self.max_lines is not None:
+                # noinspection PyProtectedMember
+                if self.paginator._current_page.count('\n') > self.max_lines:
+                    # Close the page early.
+                    self.paginator.close_page()
+
             index = max_len - 1
             while index >= 0 and not content[index].isspace():
                 index -= 1
