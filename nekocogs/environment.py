@@ -130,6 +130,11 @@ class HelpCog(neko.Cog):
         page.set_thumbnail(url=self.bot.user.avatar_url)
 
         page.add_field(
+            name='Notable contributors',
+            value=', '.join(neko.__contributors__)
+        )
+
+        page.add_field(
             name='Repository',
             value=neko.__repository__
         )
