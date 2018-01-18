@@ -3,13 +3,13 @@ Implementation of discord.ext.commands.Bot.
 """
 import concurrent.futures
 import copy
+import datetime
 import functools
 import json
 import logging
 import os
 import signal
 import sys
-import time
 import traceback
 import aiohttp
 import asyncpg
@@ -224,7 +224,7 @@ class NekoBot(commands.Bot, log.Loggable):
         )
 
         # Field for the bot's start time
-        self.start_time: time.time = None
+        self.start_time: datetime.datetime = None
         self._required_perms = 0
         self.logger.info(f'Add me to a guild at {self.invite_url}')
 
@@ -258,9 +258,9 @@ class NekoBot(commands.Bot, log.Loggable):
         return self.__postgres_pool
 
     @property
-    def up_time(self) -> time.time:
+    def up_time(self) -> datetime.timedelta:
         """Gets the bot's up-time"""
-        return time.time() - self.start_time
+        return datetime.datetime.utcnow() - self.start_time
 
     def get_token(self, api_name: str):
         """
@@ -287,7 +287,7 @@ class NekoBot(commands.Bot, log.Loggable):
 
         # The issue is, we have to
         await self.do_job_in_pool(self.__load_plugins)
-        self.start_time = time.time()
+        self.start_time = datetime.datetime.utcnow()
         await super().start(self.__token)
 
     def run(self):

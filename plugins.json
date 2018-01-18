@@ -1,11 +1,13 @@
 [
+  "nekocogs.owner",
+  "nekocogs.activity",
   "nekocogs.unitconversion",
   "nekocogs.letters",
   "nekocogs.apistatus",
   "nekocogs.dictionaries",
   "nekocogs.rng",
   "nekocogs.mewreacts",
-  "nekocogs.environment",
+  "nekocogs.help",
   "nekocogs.space",
   "nekocogs.uncategorised",
   "nekocogs.tags"
