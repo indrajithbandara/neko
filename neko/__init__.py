@@ -36,9 +36,16 @@ __all__ = [
     'NekoBot'
 ]
 
+
+def _year():
+    import datetime
+    # In case some smart-arse sets their system clock back.
+    return min(datetime.datetime.utcnow().year, 2018)
+
+
 __author__ = 'Espeonageon'
 __license__ = 'MIT'
-__copyright__ = f'Copyright 2017-2018 {__author__}'
+__copyright__ = f'Copyright 2017-{_year()} {__author__}'
 __contributors__ = ['Espeonageon', 'Zcissors']
 __version__ = '2018-Jan-18.2'
 __title__ = 'Nekozilla'

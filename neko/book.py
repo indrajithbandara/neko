@@ -1,5 +1,9 @@
 """
 Uses voodoo with embeds and reacts to make itself behave like a book.
+
+18th Jan 2018: Discord Canary seems to be doing some kind of optimisation
+which means embeds are getting corrupted. This is not an issue on regular
+release versions of Discord, and it seems to be a clientside issue.
 """
 __all__ = ['Button', 'Page', 'Book', 'PaginatedBook']
 
@@ -481,10 +485,15 @@ class PaginatedBook(Book):
                  max_lines=None,
                  ctx: commands.Context,
                  title: str):
+
+        if max_lines is not None and max_lines < 1:
+            raise ValueError('Cannot set maxlines to be less than 1.')
+
         super().__init__(ctx)
         self.paginator = commands.Paginator(prefix, suffix, max_size)
         self.title = title
         self.max_lines = max_lines
+        self.__pag_curr_lines = 0
 
     def add_line(self, content='', follow_with_empty=False):
         """
@@ -493,6 +502,7 @@ class PaginatedBook(Book):
         :param follow_with_empty: defaults to false. If true, a blank line
                 proceeds the current line.
         """
+
         # If the line cannot be fit in a full page, then don't immediately
         # give up. Instead, try to backtrack from the max page length
         # to the nearest space at the rear. If we still cannot resolve this,
@@ -501,12 +511,6 @@ class PaginatedBook(Book):
                    - len(self.paginator.prefix) - len(self.paginator.suffix))
 
         while len(content) >= max_len:
-            if self.max_lines is not None:
-                # noinspection PyProtectedMember
-                if self.paginator._current_page.count('\n') > self.max_lines:
-                    # Close the page early.
-                    self.paginator.close_page()
-
             index = max_len - 1
             while index >= 0 and not content[index].isspace():
                 index -= 1
@@ -519,9 +523,31 @@ class PaginatedBook(Book):
 
             line = content[:index + 1]
             content = content[index + 1:]
-            self.paginator.add_line(line, empty=follow_with_empty)
+            self.__add_line(line, empty=follow_with_empty)
 
-        self.paginator.add_line(content)
+        self.__add_line(content)
+
+    def __add_line(self, content, empty=False):
+        """
+        Takes a string to add, and counts the lines. If we go over max_lines
+        if that is set, then we page-break at the limit repeatedly.
+        :param content: the content to add.
+        :param empty: true if to add an empty line after.
+        """
+        if self.max_lines is not None:
+            content = content.split('\n')
+
+            for line in content:
+                if self.max_lines <= self.__pag_curr_lines:
+                    self.paginator.close_page()
+                    self.__pag_curr_lines = 0
+                self.paginator.add_line(line)
+                self.__pag_curr_lines += 1
+
+            if empty:
+                self.paginator.add_line(empty=True)
+        else:
+            self.paginator.add_line(content, empty=empty)
 
     def add_lines(self, content, follow_with_empty=True):
         """

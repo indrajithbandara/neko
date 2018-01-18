@@ -236,9 +236,39 @@ class OwnerOnlyCog(neko.Cog):
     async def list_extensions(self, ctx):
         raise NotImplementedError
 
-    @command_grp.command(enabled=False)
+    @command_grp.command(brief='Lists commands in the bot.')
     async def list_commands(self, ctx):
-        raise NotImplementedError
+        """
+        Lists loaded commands and aliases.
+        """
+
+        book = neko.PaginatedBook(
+            ctx=ctx,
+            title='Loaded commands',
+            max_lines=15)
+
+        command_lines = []
+
+        for command in sorted({*ctx.bot.walk_commands()},
+                              key=lambda c: c.qualified_name):
+
+            line = f'**{command.qualified_name}** '
+
+            if command.aliases:
+                line += f'({", ".join(command.aliases)}) '
+
+            if not command.enabled:
+                line += 'disabled '
+
+            cn = command.cog_name
+            if cn:
+                line += f'cog:{cn} '
+
+            line += f'module:{command.module}'
+            command_lines.append(line)
+        book.add_lines(command_lines)
+
+        await book.send()
 
     @neko.command(name='uptime', brief='Says how long I have been running for.')
     async def get_uptime(self, ctx):
