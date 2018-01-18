@@ -123,6 +123,8 @@ class HelpCog(neko.Cog):
             value=', '.join(neko.__contributors__)
         )
 
+        page.add_field(name='Thanks to', value=neko.__thanks__, inline=False)
+
         page.add_field(
             name='Repository',
             value=neko.__repository__

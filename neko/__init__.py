@@ -44,10 +44,16 @@ def _year():
     return min(datetime.datetime.utcnow().year, 2018)
 
 
+# Double quote strings to omit them from setup.py
 __author__ = 'Espeonageon'
 __license__ = 'MIT'
 __copyright__ = f'Copyright 2017-{_year()} {__author__}'
-__contributors__ = ['Espeonageon', 'Zcissors']
+__contributors__ = ['Espeonageon', 'Zcissors'],
+__thanks__ = ('Rotom, Smidgey, Purrloin, Bambi and Hal0 for putting up with '
+              'my constant yammering on about code, bugs, libraries, APIs, '
+              'problems, solutions, queries, Python, SQL, JSON, ..., ..., '
+              'you name it.\n\nAlso, thank you for putting up with my spam '
+              'from testing. You guys are awesome!')
 __version__ = '2018-Jan-18.2'
 __title__ = 'Nekozilla'
 __repo_name__ = 'neko'
