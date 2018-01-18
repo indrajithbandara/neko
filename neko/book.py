@@ -546,6 +546,7 @@ class PaginatedBook(Book):
 
             if empty:
                 self.paginator.add_line(empty=True)
+                self.__pag_curr_lines += 1
         else:
             self.paginator.add_line(content, empty=empty)
 

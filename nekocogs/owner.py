@@ -4,6 +4,7 @@ Owner-only operations, administrative stuff, etc.
 
 import asyncio
 import getpass
+import inspect
 import logging
 import os
 import sys
@@ -228,13 +229,87 @@ class OwnerOnlyCog(neko.Cog):
 
         await book.send()
 
-    @command_grp.command(enabled=False)
+    @command_grp.command()
     async def list_cogs(self, ctx):
-        raise NotImplementedError
+        """
+        Lists loaded cogs, along with their base-types, and the file they are
+        defined in.
+        """
+        book = neko.PaginatedBook(
+            ctx=ctx,
+            title='Loaded cogs',
+            max_lines=15,
+            max_size=800
+        )
 
-    @command_grp.command(enabled=False)
+        for name, _cog in sorted(ctx.bot.cogs.items(), key=lambda k: k[0]):
+            file = os.path.relpath(inspect.getsourcefile(_cog.__class__))
+
+            line = (
+                f'**{name}** in `{_cog.__module__}` '
+                f'(`{file}`).'
+                'With bases '
+                f'`{"`, `".join(b.__name__ for b in type(_cog).__bases__)}`.'
+            )
+
+            if hasattr(_cog, 'events'):
+                events = list(_cog.events())
+                if events:
+                    line += (
+                        f'Defines events: '
+                        f'`{"`, `".join(event.__name__ for event in events)}`'
+                    )
+
+            if hasattr(_cog, 'commands'):
+                cmds = list(_cog.commands())
+                if cmds:
+                    line += (
+                        f'Defines commands: '
+                        f'`{"`, `".join(cmd.name for cmd in cmds)}`'
+                    )
+
+            book.add_line(line)
+
+        await book.send()
+
+    @command_grp.command()
     async def list_extensions(self, ctx):
-        raise NotImplementedError
+        """
+        Lists loaded extensions. These are modules imported that contain
+        a setup() function, and often consist of groups of commands, listeners
+        or cogs.
+        """
+        book = neko.PaginatedBook(
+            ctx=ctx,
+            title='Loaded extensions',
+            max_lines=15,
+            max_size=800
+        )
+
+        for name, module in sorted(ctx.bot.extensions.items(),
+                                   key=lambda e: e[0]):
+            file = os.path.relpath(inspect.getfile(module))
+            line = f'**{name}** `({file})`'
+
+            if hasattr(module, '__all__'):
+                line += 'Exposed via `__all__`: '
+                line += ', '.join(
+                    sorted(
+                        f'`{imp}`' for imp in getattr(module, '__all__')
+                    )
+                )
+
+            line += '. Exposes: '
+            line += ', '.join(
+                sorted(
+                    f'`{member[0]}`' for member
+                    in inspect.getmembers(module)
+                    if not member[0].startswith('_'),
+                )
+            )
+
+            book.add_line(line + '.')
+        await book.send()
 
     @command_grp.command(brief='Lists commands in the bot.')
     async def list_commands(self, ctx):
@@ -245,7 +320,9 @@ class OwnerOnlyCog(neko.Cog):
         book = neko.PaginatedBook(
             ctx=ctx,
             title='Loaded commands',
-            max_lines=15)
+            max_lines=15,
+            max_size=500
+        )
 
         command_lines = []
 
@@ -255,16 +332,16 @@ class OwnerOnlyCog(neko.Cog):
             line = f'**{command.qualified_name}** '
 
             if command.aliases:
-                line += f'({", ".join(command.aliases)}) '
+                line += f'\n\t({", ".join(command.aliases)}) '
 
             if not command.enabled:
-                line += 'disabled '
+                line += '\n\tdisabled '
 
             cn = command.cog_name
             if cn:
-                line += f'cog:{cn} '
+                line += f'\n\tcog: `{cn}` '
 
-            line += f'module:{command.module}'
+            line += f'\n\tmodule: `{command.module}`'
             command_lines.append(line)
         book.add_lines(command_lines)
 

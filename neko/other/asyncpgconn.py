@@ -17,7 +17,7 @@ import neko
 import neko.other.log as log
 
 
-is_debug = True
+is_debug = False
 
 
 class ShutdownHookConnection(asyncpg.Connection):

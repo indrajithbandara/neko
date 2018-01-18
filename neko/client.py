@@ -1,6 +1,7 @@
 """
 Implementation of discord.ext.commands.Bot.
 """
+import collections
 import concurrent.futures
 import copy
 import datetime
@@ -37,36 +38,8 @@ config_template = {
 }
 
 
-def terminate(signal_no, _):
-    """
-    Re-raises any termination signal as a KeyboardInterrupt.
-
-    :param signal_no: the signal number we caught.
-    :param _: the interrupted stack frame.
-    """
-    raise KeyboardInterrupt(f'Caught interrupt {signal_no}.')
-
-
-# Signals. Apparently Windows doesn't implement all these... go figure.
-# Fixme: make a behaviour of the bot, rather than from just importing
-# the module, as that is shit programming style.
-if os.name == 'nt':
-    print('This bot has not been tested on Windows. Good luck...',
-          file=sys.stderr)
-    signals = (
-        signal.SIGABRT,
-        signal.SIGTERM,
-        signal.SIGSEGV
-    )
-else:
-    signals = (
-        signal.SIGABRT,
-        signal.SIGTERM,
-        signal.SIGQUIT,
-        signal.SIGSEGV
-    )
-for signum in signals:
-    signal.signal(signum, terminate)
+# Holds our presence.
+PresenceCache = collections.namedtuple('PresenceCahce', 'status game afk')
 
 
 class Tokens(log.Loggable):
@@ -125,7 +98,7 @@ class HttpRequestError(RuntimeError):
         return ' '.join('[self.status, self.reason]')
 
 
-class NekoBot(commands.Bot, log.Loggable):
+class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
     """
     Main bot runner. Takes a path to a JSON file holding the bot configuration.
     Expects the following fields to be present in said file.
@@ -188,6 +161,9 @@ class NekoBot(commands.Bot, log.Loggable):
         - ``async def on_command_error(...)`` - if the command error is due to
                 the command not being found, then instead of outputting
                 the error, we just attempt to react a "?" to the sender context.
+        - ``async def change_presence(...)`` - if the game/status/afk is not
+                specified now, then we do not reset it. This is done by
+                internally caching the states.
     """
 
     def __init__(self):
@@ -497,4 +473,34 @@ class NekoBot(commands.Bot, log.Loggable):
         self.__http_pool = None
         self.logger.debug('Aiohttp client session (and pool) was successfully '
                           'destroyed.')
+
+    @classmethod
+    def __init_class__(cls, *_, **__):
+        def terminate(signal_no, _):
+            """
+            Re-raises any termination signal as a KeyboardInterrupt.
+
+            :param signal_no: the signal number we caught.
+            :param _: the interrupted stack frame.
+            """
+            raise KeyboardInterrupt(f'Caught interrupt {signal_no}.')
+
+        if os.name == 'nt':
+            print('This bot has not been tested on Windows. Good luck...',
+                  file=sys.stderr)
+            signals = (
+                signal.SIGABRT,
+                signal.SIGTERM,
+                signal.SIGSEGV
+            )
+        else:
+            signals = (
+                signal.SIGABRT,
+                signal.SIGTERM,
+                signal.SIGQUIT,
+                signal.SIGSEGV
+            )
+        for signum in signals:
+            signal.signal(signum, terminate)
+
 

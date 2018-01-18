@@ -48,6 +48,7 @@ class CommandMixin(abc.ABC):
                 commands.CheckFailure: '\N{NO ENTRY SIGN}',
                 commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
                 commands.CommandOnCooldown: '\N{ALARM CLOCK}',
+                commands.DisabledCommand: '\N{MOBILE PHONE OFF}'
             }[type(error)])
         except KeyError:
             # If we haven't specified a reaction, we instead do something

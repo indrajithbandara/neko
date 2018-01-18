@@ -10,6 +10,39 @@ import discord.ext.commands as commands
 import neko
 
 
+_create_table = '''
+-- Note, BIGINT is 64bit signed
+CREATE TABLE IF NOT EXISTS nekozilla.tags (
+  pk             SERIAL         PRIMARY KEY NOT NULL UNIQUE,
+
+  name           VARCHAR(30)    NOT NULL
+                                CONSTRAINT not_whitespace_name CHECK (
+                                  TRIM(name) <> ''
+                                ),
+
+  -- Snowflake; if null we assume a global tag.
+  guild          BIGINT         DEFAULT NULL,
+
+  -- Date/time created
+  created        TIMESTAMP      NOT NULL DEFAULT NOW(),
+
+  -- Optional last date/time modified
+  last_modified  TIMESTAMP      DEFAULT NULL,
+
+  -- Snowflake
+  author         BIGINT         NOT NULL,
+
+  -- Whether the tag is considered NSFW.
+  is_nsfw        BOOLEAN        DEFAULT FALSE,
+
+  -- Tag content. Allow up to 1800 characters.
+  content        VARCHAR(1800)  CONSTRAINT not_whitespace_cont CHECK (
+                                  TRIM(content) <> ''
+                                )
+);
+'''
+
+
 @neko.inject_setup
 class TagCog(neko.Cog):
     """
@@ -38,9 +71,7 @@ class TagCog(neko.Cog):
         """
         self.logger.info('Ensuring tables exist')
         async with self.bot.postgres_pool.acquire() as conn:
-            with open(neko.relative_to_here('create_tags_tbls.sql')) as fp:
-                await conn.execute(fp.read())
-        self.logger.info('Tables should now exist if they didn\'t already.')
+            await conn.execute(_create_table)
 
     @staticmethod
     async def _del_msg_soon(send_msg=None, resp_msg=None):
