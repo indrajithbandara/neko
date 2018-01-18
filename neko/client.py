@@ -461,7 +461,9 @@ class NekoBot(commands.Bot, log.Loggable):
             )
         except BaseException:
             traceback.print_exc()
-            self.logger.error('Could not initialise database pool.')
+            self.logger.error('Could not initialise database pool. Cogs '
+                              'that rely on this pool will likely fail. You '
+                              'should be able to just ignore those messages.')
         else:
             self.logger.info('Created postgres pool. Database says HELLO!')
             async with self.postgres_pool.acquire() as conn:
