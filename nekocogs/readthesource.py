@@ -105,7 +105,8 @@ class ReadTheSourceCog(neko.Cog):
 
     @neko.command(
         name='rtfs_recache',
-        brief='Recaches the code.'
+        brief='Recaches the code.',
+        hidden=True
     )
     @commands.is_owner()
     async def recache_code(self, ctx):
