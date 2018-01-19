@@ -30,6 +30,58 @@ def get_endpoint(page_name):
     return f'{endpoint_base}/{api_version}/{page_name}'
 
 
+def get_impact_color(impact):
+    return {
+        'none': 0x0,
+        'minor': 0xff0000,
+        'major': 0xffa500,
+        'critical': 0xff0000,
+    }.get(impact.lower(), 0x0)
+
+
+def find_highest_impact(entries):
+    print(entries)
+
+    for state in ('critical', 'major', 'minor', 'none'):
+        for entry in entries:
+            if entry['Impact'].lower() == state:
+                return state.title()
+    return 'None'
+
+
+def make_incident_body(incident):
+    created = friendly_date(incident['Created At'])
+    updated = incident.get('Updated At')
+    updated = friendly_date(updated) if updated else 'N/A'
+    monitoring = incident.get('Monitoring At')
+    monitoring = friendly_date(monitoring) if monitoring else 'N/A'
+
+    recent_update = incident.get('updates')
+    recent_update = recent_update[0] if recent_update else None
+
+    if recent_update:
+        ru_message = f'**Most recent update**:'
+
+        updated_at = recent_update.get('Updated At')
+        created_at = recent_update.get('Created At')
+        body = recent_update.get('Body')
+
+        if updated_at:
+            ru_message += f'\n- Last updated at {friendly_date(updated_at)}'
+        elif created_at:
+            ru_message += f'\n- Created at {friendly_date(created_at)}'
+
+        ru_message += f'\n{body}'
+
+    return (
+        f'**Status**: {incident["Status"]}\n'
+        f'**Created**: {created}\n'
+        f'**Updated**: {updated}\n'
+        f'**Monitoring**: {monitoring}\n'
+        f'{ru_message if recent_update else "No updates yet."}'
+    )
+
+
 def parse_timestamp(timestamp):
     """
     Discord use a timestamp that is not compatible with Python by
@@ -133,18 +185,33 @@ class DiscordServiceStatusNut(neko.Cog):
             desc += (f'{status["description"]}\n\n'
                      f'Last updated: {friendly_date(status["updated_at"])}.')
 
+            if not incidents['unresolved']:
+                color = status['color']
+            else:
+                color = get_impact_color(
+                    find_highest_impact(incidents['unresolved']))
+
             """
             PAGE 1
             ------
 
             Overall status
             """
-            book += neko.Page(
+            page = neko.Page(
                 title='Discord API Status',
                 description=desc,
-                color=status['color'],
+                color=color,
                 url=status['url']
             )
+
+            if incidents['unresolved']:
+                first = incidents['unresolved'][0]
+                name = first['Name']
+                body = neko.ellipses(make_incident_body(first), 1024)
+
+                page.add_field(name=name, value=body, inline=False)
+
+            book += page
 
             """
             PAGE 2
@@ -156,7 +223,7 @@ class DiscordServiceStatusNut(neko.Cog):
             page = neko.Page(
                 title='Discord API Status',
                 description=desc,
-                color=status['color'],
+                color=color,
                 url=status['url']
             )
 
@@ -179,7 +246,7 @@ class DiscordServiceStatusNut(neko.Cog):
             book += page
 
             """
-            PAGE 2
+            PAGE 3
             ======
 
             Non showcase components
@@ -197,7 +264,7 @@ class DiscordServiceStatusNut(neko.Cog):
                     page = neko.Page(
                         title='Other components',
                         description='Other minor components for Discord.',
-                        color=status['color'],
+                        color=color,
                         url=status['url']
                     )
 
@@ -221,8 +288,70 @@ class DiscordServiceStatusNut(neko.Cog):
             if fields > 0:
                 book += page
 
-            # TODO: add maintenances and incidents.
+            """
+            PAGE 3
+            ======
+            
+            Incidents.
+            """
+            page = neko.Page(
+                title='Unresolved incidents',
+                color=color
+            )
+
+            if incidents['unresolved']:
+                incident = incidents['unresolved'][0]
+
+                name = f'**{incident["Name"]}**'
+                desc = neko.ellipses(make_incident_body(incident), 1800)
+
+                page.description = name + '\n\n' + desc.strip()
+
+            for incident in incidents['unresolved'][1:3]:
+                body = make_incident_body(incident)
+                name = incident['Name']
+
+                body = name + '\n\n' + body
+
+                page.add_field(
+                    name='\u200b',
+                    value=neko.ellipses(body, 1024).strip()
+                )
+
+            book += page
+
+            """
+            PAGE 4
+            ======
+
+            Resolved incidents.
+            """
+            page = neko.Page(
+                title='Resolved incidents',
+                color=color,
+            )
+
+            if incidents['resolved']:
+                incident = incidents['resolved'][0]
+
+                name = f'**{incident["Name"]}**'
+                desc = neko.ellipses(make_incident_body(incident), 1800)
+                page.description = name + '\n\n' + desc.strip()
+
+            # Add the next three most recent.
+            for incident in incidents['resolved'][1:3]:
+                body = make_incident_body(incident)
+                name = f'**{incident["Name"]}**'
+
+                body = name + '\n\n' + body.strip()
+
+                page.add_field(name='\u200b', value=neko.ellipses(body, 1024))
+
+            book += page
+
             await book.send()
+
+            # TODO: maybe finish implementing this when I feel like it.
 
     @staticmethod
     async def get_status(res) -> typing.Dict[str, typing.Any]:
