@@ -14,13 +14,6 @@ import neko.other.perms as perms
 endpoint_base = 'https://status.discordapp.com/api'
 api_version = 'v2'
 
-status_color_map = {
-    'none': 0x00FF00,  # Green
-    'minor': 0xFFBF00,  # Amber
-    'major': 0xFF0000,  # Red
-    'critical': 0x0,  # Black
-}
-
 # Max fields per page on short pages
 max_fields = 4
 
@@ -30,14 +23,13 @@ def get_endpoint(page_name):
     return f'{endpoint_base}/{api_version}/{page_name}'
 
 
-def get_impact_color(impact):
+def get_impact_color(impact, is_global=False):
     return {
-        'none': 0x0,
+        'none': 0x00ff00 if is_global else 0x0,
         'minor': 0xff0000,
         'major': 0xffa500,
         'critical': 0xff0000,
     }.get(impact.lower(), 0x0)
-
 
 def find_highest_impact(entries):
     print(entries)
@@ -373,7 +365,7 @@ class DiscordServiceStatusNut(neko.Cog):
 
         return {
             'description': res['status']['description'],
-            'color': status_color_map[res['status']['indicator']],
+            'color': get_impact_color(res['status']['indicator'], True),
             'indicator': res['status']['indicator'].title(),
             'updated_at': updated_at,
             'url': res['page']['url']
