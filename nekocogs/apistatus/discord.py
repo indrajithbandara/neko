@@ -31,6 +31,7 @@ def get_impact_color(impact, is_global=False):
         'critical': 0xff0000,
     }.get(impact.lower(), 0x0)
 
+
 def find_highest_impact(entries):
     print(entries)
 

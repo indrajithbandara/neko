@@ -20,6 +20,7 @@ also, as it uses the neko module as a start point.
 This is still highly experimental and probably buggy code. But I thought it
 would be an interesting feature none-the-less.
 """
+import asyncio
 import copy
 import inspect
 import os
@@ -27,9 +28,7 @@ import shutil
 import subprocess
 import time
 
-import asyncio
-
-from discord.ext import commands
+import discord.ext.commands as commands
 
 import neko
 
@@ -46,7 +45,7 @@ class ReadTheSourceCog(neko.Cog):
     """
 
     # These are relative to the parent directory of the neko package.
-    _start_nodes = {'neko', 'nekocogs'}
+    _start_nodes = {'neko', 'nekocogs', 'nssm', 'nssm_unit_tests'}
 
     def __init__(self, bot: neko.NekoBot):
         self.index = {}
