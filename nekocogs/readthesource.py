@@ -33,7 +33,7 @@ import discord.ext.commands as commands
 import neko
 
 
-# @neko.with_verbosity('DEBUG')
+@neko.with_verbosity('DEBUG')
 @neko.inject_setup
 class ReadTheSourceCog(neko.Cog):
     """
