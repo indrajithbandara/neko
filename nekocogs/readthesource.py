@@ -214,6 +214,43 @@ class ReadTheSourceCog(neko.Cog):
         # element.
         file_index = {}
 
+        def index_member(_module, _member, _name):
+            # Get the line number it is declared on.
+            member_name = f'{_module.__name__}.{_name}'
+
+            # If we have a class, recurse to index that...
+            if inspect.isclass(_member):
+                for sub_member_name, sub_member in inspect.getmembers(_member):
+                    if not sub_member_name.startswith('_'):
+                        index_member(_member, sub_member, sub_member_name)
+
+            try:
+                _, _line = inspect.getsourcelines(_member)
+                file_name = inspect.getfile(_member)
+
+                # Get relative path
+                file_name = os.path.relpath(file_name, base)
+
+                # If the relative path begins with .., then we assume
+                # it is outside the source tree, so we choose to drop it
+                if file_name.startswith(os.pardir):
+                    self.logger.debug(f'Dropping {file_name} as outside '
+                                      'source tree.')
+                if not any(file_name.startswith(s)
+                           for s in self._start_nodes):
+                    self.logger.debug(f'Dropping {file_name} as it is not '
+                                      'in the chosen index directories.')
+            except OSError as exc:
+                self.logger.debug(
+                    f'OSError when inspecting {name} in {module.__name__} '
+                    f'with message {exc}'
+                )
+            except TypeError:
+                self.logger.debug(f'Giving up on {name} in {rel_path}')
+            else:
+                self.logger.debug(f'Indexed {member_name} in {file_name}')
+                file_index[member_name] = (file_name, _line)
+
         # Attempt to index the files. Use a shallow copy to enable resizing
         # of original set mid-iteration.
         for file in copy.copy(potential_files):
@@ -232,38 +269,7 @@ class ReadTheSourceCog(neko.Cog):
             file_index[module.__name__] = (rel_path, 0)
 
             for name, member in inspect.getmembers(module):
-                # Get the line number it is declared on.
-                member_name = f'{module.__name__}.{name}'
-
-                try:
-                    _, line = inspect.getsourcelines(member)
-                    file_name = inspect.getfile(member)
-
-                    # Get relative path
-                    file_name = os.path.relpath(file_name, base)
-
-                    # If the relative path begins with .., then we assume
-                    # it is outside the source tree, so we choose to drop it
-                    if file_name.startswith(os.pardir):
-                        self.logger.debug(f'Dropping {file_name} as outside '
-                                          'source tree.')
-                        continue
-                    if not any(file_name.startswith(s)
-                               for s in self._start_nodes):
-                        self.logger.debug(f'Dropping {file_name} as it is not '
-                                          'in the chosen index directories.')
-                        continue
-
-                except OSError as ex:
-                    self.logger.debug(
-                        f'OSError when inspecting {name} in {module.__name__} '
-                        f'with message {ex}'
-                    )
-                except TypeError:
-                    self.logger.debug(f'Giving up on {name} in {rel_path}')
-                else:
-                    self.logger.debug(f'Indexed {member_name} in {file_name}')
-                    file_index[member_name] = (file_name, line)
+                index_member(module, member, name)
 
         # Generate GitHub URLS
         repo = neko.__repository__
