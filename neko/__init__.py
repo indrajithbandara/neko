@@ -17,6 +17,7 @@ from .common import *
 from .io import *
 from .strings import *
 from .other.log import with_verbosity
+from .deque import *
 
 
 # These are useful to have in the namespace.
