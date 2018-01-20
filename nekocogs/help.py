@@ -27,6 +27,27 @@ async def proper_can_run(cmd, ctx):
         return True
 
 
+async def should_show(cmd, ctx):
+    """
+    Logic to determine whether to include a given page in the help.
+
+    This filters out all disabled, hidden and unrunnable commands except if
+    the ctx was invoked by the bot owner; in this case, everything is
+    displayed regardless.
+
+    :param cmd: command to verify.
+    :param ctx: context to check against.
+    :return: true if we should show it, false otherwise.
+    """
+    if ctx.author.id == ctx.bot.owner_id:
+        return True
+    else:
+        can_run = await proper_can_run(cmd, ctx)
+        is_hidden = cmd.hidden
+        is_enabled = cmd.enabled
+        return can_run and not is_hidden and is_enabled
+
+
 @neko.inject_setup
 class HelpCog(neko.Cog):
     """Provides the inner methods with access to bot directly."""
@@ -68,15 +89,19 @@ class HelpCog(neko.Cog):
         command_to_page[None] = 0
 
         # Walk commands
-        cmds = sorted(set(self.bot.walk_commands()),
-                      key=lambda c: c.qualified_name)
+        all_cmds = sorted(set(self.bot.walk_commands()),
+                          key=lambda c: c.qualified_name)
 
         # We offset each index in the enumeration by this to get the
         # correct page number.
         offset = len(bk)
 
+        # Strip out any commands we don't want to show.
+        cmds = [cmd for cmd in all_cmds if await should_show(cmd, ctx)]
+
         page_index = None
         for i, cmd in enumerate(cmds):
+
             bk += await self.gen_spec_page(ctx, cmd)
 
             if page_index is None and query in cmd.qualified_names:
@@ -130,13 +155,9 @@ class HelpCog(neko.Cog):
             value=neko.__repository__
         )
 
-        # If we are the bot owner, we do not hide any commands.
-        is_bot_owner = await self.bot.is_owner(ctx.author)
-
         cmds = sorted(self.bot.commands, key=lambda c: c.name)
         cmds = [await self.format_command_name(cmd, ctx)
-                for cmd in cmds
-                if is_bot_owner or not cmd.hidden]
+                for cmd in cmds if await should_show(cmd, ctx)]
 
         page.add_field(
             name='Available commands',
