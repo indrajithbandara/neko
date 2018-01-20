@@ -33,7 +33,7 @@ import discord.ext.commands as commands
 import neko
 
 
-# @neko.with_verbosity('DEBUG')
+@neko.with_verbosity('DEBUG')
 @neko.inject_setup
 class ReadTheSourceCog(neko.Cog):
     """
@@ -213,15 +213,25 @@ class ReadTheSourceCog(neko.Cog):
         # element.
         file_index = {}
 
-        def index_member(_module, _member, _name):
+        def index_member(_module, _member, _name, _mod_name=None):
+            # _mod_name has to be specified if we are not indexing a member
+            # that is a direct child of a module, e.g. a class method. My
+            # crappy code here means that if the latter is true, we get
+            # incorrect module names otherwise.
+
             # Get the line number it is declared on.
-            member_name = f'{_module.__name__}.{_name}'
+            module_name = (_module.__name__ if not _mod_name else _mod_name)
+
+            member_name = f'{module_name}.{_name}'
 
             # If we have a class, recurse to index that...
             if inspect.isclass(_member):
                 for sub_member_name, sub_member in inspect.getmembers(_member):
                     if not sub_member_name.startswith('_'):
-                        index_member(_member, sub_member, sub_member_name)
+                        index_member(_member,
+                                     sub_member,
+                                     sub_member_name,
+                                     member_name)
 
             try:
                 _, _line = inspect.getsourcelines(_member)
@@ -235,10 +245,12 @@ class ReadTheSourceCog(neko.Cog):
                 if file_name.startswith(os.pardir):
                     self.logger.debug(f'Dropping {file_name} as outside '
                                       'source tree.')
+                    return
                 if not any(file_name.startswith(s)
                            for s in self._start_nodes):
                     self.logger.debug(f'Dropping {file_name} as it is not '
                                       'in the chosen index directories.')
+                    return
             except OSError as exc:
                 self.logger.debug(
                     f'OSError when inspecting {name} in {module.__name__} '
