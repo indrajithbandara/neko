@@ -57,7 +57,8 @@ class ReadTheSourceCog(neko.Cog):
         Caches the first time we connect only.
         """
         if not self.is_ready:
-            await self.__cache()
+            # Run this in the background.
+            asyncio.ensure_future(self.__cache())
 
     async def __cache(self):
         """
