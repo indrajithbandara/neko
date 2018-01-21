@@ -204,6 +204,19 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         self._required_perms = 0
         self.logger.info(f'Add me to a guild at {self.invite_url}')
 
+        # Adds a couple of events I find useful to log.
+        @self.listen()
+        async def on_connect():
+            self.logger.info(f'Connected at {datetime.datetime.now()}')
+
+        @self.listen()
+        async def on_resumed():
+            self.logger.info(f'Resumed at {datetime.datetime.now()}')
+
+        @self.listen()
+        async def on_ready():
+            self.logger.info(f'Ready at {datetime.datetime.now()}')
+
     @property
     def invite_url(self) -> str:
         """Gets the URL to invite the bot to a guild."""
