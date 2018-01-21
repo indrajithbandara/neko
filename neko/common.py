@@ -119,7 +119,9 @@ def is_coroutine(coro):
 
 def random_colour(bits=24):
     """Returns a random 24-bit colour hex value."""
-    return random.randint(0, (2 ** bits) - 1)
+    # For 24 bits, 1 << 24 == 0x1000000
+    # 0x1000000 - 1 = 0xFFFFFF.
+    return random.randint(0, (1 << bits) - 1)
 
 
 # MAKE AMERICA GREAT AGAIN
