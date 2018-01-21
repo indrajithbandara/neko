@@ -122,8 +122,8 @@ class Lexer:
         :return: the character(s) peeked at.
         """
         # Flags up any bad code.
-        assert offset >= 0
-        assert count > 0
+        assert offset >= 0, 'Negative offset!'
+        assert count > 0, 'Non-positive count!'
 
         start = self.index + offset
         end = start + count
