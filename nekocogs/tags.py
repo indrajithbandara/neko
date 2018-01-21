@@ -2,6 +2,7 @@
 Tag implementation using PostgreSQL backend for storage and management.
 """
 import asyncio
+import copy
 import re
 
 import discord
@@ -83,12 +84,37 @@ class TagCog(neko.Cog):
                 x = x.message
             await x.delete()
 
+    @staticmethod
+    async def _add_tag_list_to_pag(ctx, book):
+        async with ctx.bot.postgres_pool.acquire() as conn:
+            results = await conn.fetch(
+                '''
+                SELECT name, is_nsfw, guild IS NULL as is_global
+                FROM nekozilla.tags
+                WHERE guild IS NULL OR guild = ($1)
+                ORDER BY name, created;
+                ''',
+                ctx.guild.id)
+            for result in results:
+                name = result['name']
+                if result['is_global']:
+                    name = f'__{name}__'
+                if result['is_nsfw'] and not ctx.channel.nsfw:
+                    # Hides NSFW commands from regular users unless in NSFW
+                    # channels.
+                    if ctx.author.id == ctx.bot.owner_id:
+                        name = f'~~{name}~~'
+                    else:
+                        continue
+
+                book.add_line(f'- {name}')
+
     @neko.group(
         name='tag',
         brief='Text tags that can be defined and retrieved later',
         usage='tag_name',
         invoke_without_command=True)
-    async def tag_group(self, ctx, tag_name):
+    async def tag_group(self, ctx: neko.Context, tag_name=None):
         """
         Displays the tag if it can be found. The local tags are searched
         first, and then the global tags.
@@ -96,6 +122,40 @@ class TagCog(neko.Cog):
         If we start the tag with an "!", then we try the global tags list first
         instead.
         """
+        if tag_name is None:
+            book = neko.PaginatedBook(ctx=ctx, title='Tags', max_lines=15)
+
+            desc = f'Run {ctx.prefix}help tag <command> for more info.\n\n'
+
+            page = neko.Page(
+                title='Tag commands'
+            )
+
+            cmds = {*self.tag_group.walk_commands()}
+            for cmd in copy.copy(cmds):
+                # Remove any commands we cannot run.
+                if not await cmd.can_run(ctx) or cmd.hidden:
+                    cmds.remove(cmd)
+
+            # Generate strings.
+            cmds = {'**' + ' '.join(cmd.qualified_name.split(' ')[1:]) + '** - '
+                    + cmd.brief for cmd in cmds}
+
+            for line in sorted(cmds):
+                desc += f'{line}\n'
+
+            desc += '\nThe following pages will list the available tags.'
+
+            page.description = desc
+
+            book += page
+
+            async with ctx.typing():
+                await self._add_tag_list_to_pag(ctx, book)
+
+            await book.send()
+            return
+
         local_first = False
         if tag_name.startswith('!'):
             tag_name = tag_name[1:]
@@ -240,8 +300,7 @@ class TagCog(neko.Cog):
                     SELECT 1 FROM nekozilla.tags
                     WHERE LOWER(name) = ($1) AND guild IS NULL;
                     ''',
-                    tag_name
-                )
+                    tag_name)
                 if len(existing) > 0:
                     raise neko.NekoCommandError('Tag already exists')
 
@@ -319,6 +378,63 @@ class TagCog(neko.Cog):
                         f'Removed{" globally" if is_global else ""}.'
                     )
                 )
+
+    @tag_group.command(
+        name='promote',
+        brief='Promotes a tag to be globally available.',
+        usage='tag_name')
+    @commands.is_owner()
+    async def tag_promote(self, ctx, tag_name):
+        """
+        Note that the information regarding the guild will be lost when
+        this operation is performed. Also note that you can not adjust whether
+        the tag is SFW or not. This is a trait set by the type of channel you
+        add the tag in. To change this, you need to remove and remake the tag
+        in a SFW/NSFW channel.
+        """
+        # First validate the tag name
+        if tag_name in self.invalid_tag_names:
+            raise neko.NekoCommandError('Invalid tag name')
+        else:
+            async with ctx.bot.postgres_pool.acquire() as conn:
+                async with ctx.typing():
+                    existing_local = await conn.fetch(
+                        '''
+                        SELECT pk FROM nekozilla.tags
+                        WHERE LOWER(name) = ($1) AND guild = ($2);
+                        ''',
+                        tag_name, ctx.guild.id)
+
+                    # Ensure tag exists locally.
+                    if not existing_local:
+                        raise neko.NekoCommandError('Cannot find that tag.')
+
+                    existing_global = await conn.fetch(
+                        '''
+                        SELECT 1 FROM nekozilla.tags
+                        WHERE LOWER(name) = ($1) AND guild IS NULL;
+                        ''',
+                        tag_name)
+
+                    # Ensure tag does not exist globally.
+                    if existing_global:
+                        raise neko.NekoCommandError('Global tag with that name '
+                                                    'already seems to exist.')
+
+                    pk = existing_local[0]['pk']
+
+                    # Update the tag
+                    await conn.execute(
+                        '''
+                        UPDATE nekozilla.tags
+                        SET last_modified = NOW(), guild = NULL
+                        WHERE pk = ($1);
+                        ''',
+                        pk)
+
+                await self._del_msg_soon(
+                    ctx,
+                    await ctx.send('Promoted tag to global status.'))
 
     @tag_group.group(
         name='remove',
@@ -460,25 +576,9 @@ class TagCog(neko.Cog):
         """
         This lists bot local and global tags.
         """
-        async with ctx.bot.postgres_pool.acquire() as conn:
-            results = await conn.fetch(
-                '''
-                SELECT name, is_nsfw, guild IS NULL as is_global
-                FROM nekozilla.tags
-                WHERE guild IS NULL OR guild = ($1)
-                ORDER BY name, created;
-                ''',
-                ctx.guild.id
-            )
+        book = neko.PaginatedBook(ctx=ctx, title='Tags', max_lines=15)
 
-            book = neko.PaginatedBook(ctx=ctx, title='Tags', max_lines=15)
-            for result in results:
-                name = result['name']
-                if result['is_global']:
-                    name = f'__{name}__'
-                if result['is_nsfw'] and not ctx.channel.nsfw:
-                    name = f'~~{name}~~'
+        async with ctx.typing():
+            await self._add_tag_list_to_pag(ctx, book)
 
-                book.add_line(f'- {name}')
-
-            await book.send()
+        await book.send()

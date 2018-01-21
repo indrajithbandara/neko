@@ -11,22 +11,6 @@ import neko.other.perms as perms
 default_color = 0x1E90FF
 
 
-async def proper_can_run(cmd, ctx):
-    """
-    Apparently if you are checking for bot ownership, it
-    raises an error instead of returning false. This shits
-    across all the code I have written, and is entirely
-    illogical in my eyes, but whatever.
-    """
-    try:
-        # noinspection PyUnresolvedReferences
-        assert await cmd.can_run(ctx)
-    except BaseException:
-        return False
-    else:
-        return True
-
-
 async def should_show(cmd, ctx):
     """
     Logic to determine whether to include a given page in the help.
@@ -42,7 +26,7 @@ async def should_show(cmd, ctx):
     if ctx.author.id == ctx.bot.owner_id:
         return True
     else:
-        can_run = await proper_can_run(cmd, ctx)
+        can_run = await cmd.can_run(ctx)
         is_hidden = cmd.hidden
         is_enabled = cmd.enabled
         return can_run and not is_hidden and is_enabled
@@ -209,7 +193,7 @@ class HelpCog(neko.Cog):
             super_command = None
 
         # noinspection PyUnresolvedReferences
-        can_run = await proper_can_run(cmd, ctx)
+        can_run = await cmd.can_run(ctx)
 
         if isinstance(cmd, neko.GroupMixin):
             async def sub_cmd_map(c):
@@ -322,7 +306,7 @@ class HelpCog(neko.Cog):
         else:
             name = cmd.name
 
-        if not cmd.enabled or not await proper_can_run(cmd, ctx):
+        if not cmd.enabled or not await cmd.can_run(ctx):
             name = f'~~{name}~~'
 
         if cmd.hidden:

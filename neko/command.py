@@ -103,7 +103,19 @@ class NekoCommand(commands.Command, CommandMixin):
     """
     Implementation of a command.
     """
-    pass
+    async def can_run(self, ctx):
+        """
+        Determine whether the command is runnable by the given context.
+
+        This overrides the built in functionality by ensuring that
+        checks such as ``discord.ext.commands.is_owner()`` do not raise an
+        unhandled exception when failing. If an exception is raised, we just
+        defer to ``False.``
+        """
+        try:
+            return await super().can_run(ctx)
+        except commands.CommandError:
+            return False
 
 
 class NekoGroup(commands.Group, CommandMixin, commands.GroupMixin):
@@ -118,6 +130,20 @@ class NekoGroup(commands.Group, CommandMixin, commands.GroupMixin):
     def group(self, **kwargs):
         kwargs.setdefault('cls', NekoGroup)
         return super().command(**kwargs)
+
+    async def can_run(self, ctx):
+        """
+        Determine whether the command is runnable by the given context.
+
+        This overrides the built in functionality by ensuring that
+        checks such as ``discord.ext.commands.is_owner()`` do not raise an
+        unhandled exception when failing. If an exception is raised, we just
+        defer to ``False.``
+        """
+        try:
+            return await super().can_run(ctx)
+        except commands.CommandError:
+            return False
 
 
 # noinspection PyShadowingBuiltins
