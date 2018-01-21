@@ -29,6 +29,7 @@ import subprocess
 import time
 
 import discord.ext.commands as commands
+import re
 
 import neko
 
@@ -234,6 +235,11 @@ class ReadTheSourceCog(neko.Cog):
                                      member_name)
 
             try:
+                # Fixes some crap with functions being borked by having the
+                # @command decorator on it.
+                if isinstance(_member, commands.Command):
+                    _member = _member.callback
+
                 _, _line = inspect.getsourcelines(_member)
                 file_name = inspect.getfile(_member)
 

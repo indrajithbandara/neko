@@ -3,6 +3,9 @@ Lexical analysis stage.
 
 Takes a string or strings as input and generates a collection of tokens.
 """
+import typing
+
+from . import ex
 from . import tokens
 
 
@@ -18,9 +21,9 @@ class Lexer:
        tokens = [lex]
     """
     def __init__(self, _input: str):
-        # Positional information.
-        self.row = 0
-        self.col = 0
+        # Positional information. Row,col is 1-based. Index is 0-based
+        self.row = 1
+        self.col = 1
         self.index = 0
         self._input = _input
 
@@ -29,35 +32,75 @@ class Lexer:
 
     def __iter__(self):
         """
-        Parses the next token.
+        Returns an iterator expression that yields the
+        next token, if there is one.
         """
-        try:
-            # parse next bit. This is just a placeholder for now.
-            for i in range(0, 10):
-                yield i
-        except IndexError:
-            return
+        # Skip any whitespace.
+        self._skip_whitespace()
 
-    def _parse_string(self):
-        """
-        Parses a string.
-        """
-        raise NotImplementedError
+        # If we are past the max index, we should yield EOF and then
+        # close the iterator.
+        if self.index >= self._len:
+            yield tokens.eof
+            return None
+        else:
+            # Next character determines what we do.
+            next_char = self._peek()
 
-    def _parse_identifier(self):
+            # A digit will yield some kind of number.
+            if next_char.isnumeric():
+                yield self._parse_number()
+
+            # Alpha character is an identifier, as is an underscore.
+            elif next_char.isalpha() or next_char == '_':
+                yield self._parse_identifier()
+
+            # Single/double quotes denote the start of a string.
+            elif next_char in '"\'':
+                yield self._parse_string()
+
+            # Newline, semicolon denotes end of statement.
+            elif next_char in '\n;':
+                yield self._parse_end_of_statement()
+
+            # Otherwise, we raise an exception. Invalid token parsed.
+            else:
+                # Find end of line.
+                index = self.index
+                while index < self._len and self._peek(index) not in '\n;':
+                    index += 1
+
+                raise ex.UndefinedTokenError(
+                    self.index,
+                    self.row,
+                    self.col,
+                    next_char,
+                    # Gets the entire line or statement.
+                    self._input[self.index + 1 - self.col:index])
+
+    def _parse_identifier(self) -> tokens.IdentifierToken:
         """
         Parses an identifier.
         """
-        raise NotImplementedError
+        # First character must be alpha or underscore.
 
-    def _parse_number(self):
+    def _parse_number(self) -> typing.Union[
+                                    tokens.DecimalToken,
+                                    tokens.RealToken
+                               ]:
         """
         Attempts to parse an integer or float. An integer can be in binary,
         hexadecimal, octal or decimal format.
         """
         raise NotImplementedError
 
-    def _parse_end_of_statement(self):
+    def _parse_string(self) -> tokens.StringToken:
+        """
+        Parses a string.
+        """
+        raise NotImplementedError
+
+    def _parse_end_of_statement(self) -> tokens.Token:
         """
         This will parse the end of a statement, which can either be a semicolon
         or a newline character. This will also skip any whitespace up to the
@@ -65,13 +108,17 @@ class Lexer:
         """
         raise NotImplementedError
 
-    def _skip_whitespace(self):
+    def _skip_whitespace(self) -> None:
         """
-        Skips arbitrary whitespace. This will NOT skip newlines.
+        Skips arbitrary whitespace. This will NOT skip newlines, as these
+        can be used to delimit statements. If we have no whitespace, this
+        will do nothing, so it is safe to call anywhere where you may expect
+        an optional series of whitespace characters.
         """
-        raise NotImplementedError
+        while self._starts_with(' ', '\t'):
+            self._go_forwards()
 
-    def _go_forwards(self, how_far: int=1):
+    def _go_forwards(self, how_far: int=1) -> None:
         """
         Moves the pointer forwards by ``how_far``. If a newline is encountered,
         then we automatically adjust any indexes.
@@ -85,7 +132,7 @@ class Lexer:
             # Work out how the line and col will change before moving
             # the index forwards.
             if self._peek() == '\n':
-                self.col = 0
+                self.col = 1
                 self.row += 1
             else:
                 self.col += 1
@@ -93,27 +140,21 @@ class Lexer:
             self.index += 1
             how_far -= 1
 
-    def _starts_with(self, string: str):
+    def _starts_with(self, *strings: str) -> bool:
         """
         Determine if the next section of input to parse starts with the
         given string. This checks from the substring at the current
         parser index onwards.
-        :param string: the string to check.
+        :param string: the string to check, or collection of strings to
+                ``any``.
         :return: true if it starts with the string, false otherwise.
         """
         # Again, stops bad code.
-        assert string, 'You seem to be passing in an empty string. That is bad.'
+        assert strings, 'You seem to be passing in an emptystring. That is bad.'
 
-        if len(string) == 1:
-            # This may be marginally faster as it does not create a new
-            # string each time (I think). If this does turn out to have no
-            # performance benefit we may as well just remove it and use
-            # startswith for everything.
-            return self._input[self.index] == string
-        else:
-            return self._input[self.index:].startswith(string)
+        return any(self._input[self.index:].startswith(s) for s in strings)
 
-    def _peek(self, offset: int=0, count: int=1):
+    def _peek(self, offset: int=0, count: int=1) -> str:
         """
         Peeks at the substring that is waiting to be tokenize-d.
         :param offset: the offset from the current position to peek at.
@@ -127,4 +168,7 @@ class Lexer:
 
         start = self.index + offset
         end = start + count
-        return self._input[start:end]
+        val = self._input[start:end]
+
+        assert len(val) == count, 'Possibly hit end of file badly.'
+        return val

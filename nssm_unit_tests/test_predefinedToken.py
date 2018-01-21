@@ -59,7 +59,6 @@ class TestTokenMatch(TestCase):
         self.aseq(tokens.comma, ',')
         self.aseq(tokens.question, '?')
         self.aseq(tokens.colon, ':')
-        self.aseq(tokens.semi, ';')
         self.aseq(tokens.lsquare, '[')
         self.aseq(tokens.rsquare, ']')
         self.aseq(tokens.lbrace, '{')

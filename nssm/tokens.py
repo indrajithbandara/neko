@@ -4,7 +4,6 @@ Implementations of various tokens.
 import enum
 import typing
 
-
 __flag = 1
 
 
@@ -115,7 +114,7 @@ class OperatorToken(Token):
 
 class MiscToken(Token):
     """Another type of token that does not match the existing criteria."""
-    def __init__(self, name: str, value: str):
+    def __init__(self, name: str, value: typing.Optional[str]):
         super().__init__(name, value, Type.other)
 
 
@@ -330,9 +329,14 @@ comma = MiscToken(
     'Comma',
     ',')
 
-semi = MiscToken(
-    'Semicolon',
-    ';')
+# This signifies end-of-statement.
+eos = MiscToken(
+    'End of statement',
+    'EOL')
+
+eof = MiscToken(
+    'End of file',
+    None)
 
 
 operators = (
@@ -342,5 +346,7 @@ operators = (
 )
 
 other_tokens = (
-    lparen, rparen, lsquare, rsquare, lbrace, rbrace, semi, colon, question
+    lparen, rparen, lsquare, rsquare, lbrace, rbrace, colon, question
 )
+
+special_tokens = (eos, eof)
