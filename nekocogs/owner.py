@@ -2,13 +2,15 @@
 Owner-only operations, administrative stuff, etc.
 """
 
-import asyncio.subprocess
+import asyncio
 import getpass
 import inspect
 import logging
 import os
+import subprocess
 import sys
 import time
+import traceback
 
 import neko
 import neko.other.perms as perms
@@ -367,9 +369,93 @@ class OwnerOnlyCog(neko.Cog):
         """
         Attempts to stash any local changes, and then git-pull from the remote.
         """
-        # If there is a pre-existing stash, we should warn the author.
-        asyncio.create_subprocess_exec(
-            'git',
-            'stash',
-            'list')
+        def executor():
+            log = []
+            try:
+                log.append('>>> DROPPING EXISTING STASH! <<<')
+                log.append(' $ git stash clear')
 
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'stash', 'clear'], stderr=subprocess.STDOUT,
+                        universal_newlines=True))
+
+                log.append(' $ git stash\n')
+
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'stash'], stderr=subprocess.STDOUT,
+                        universal_newlines=True))
+
+                log.append('>>> UPDATING SOURCE CODE! <<<')
+
+                log.append(' $ git pull --all')
+
+                # Pulls may be large. We allow up to one minute before we kill
+                # it.
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'pull', '--all'],
+                        stderr=subprocess.STDOUT,
+                        timeout=60_000,
+                        universal_newlines=True))
+
+                log.append('>>> ATTEMPTING TO RESTORE SOURCE CODE STATE! <<<')
+
+                log.append(' $ git stash pop')
+
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'stash', 'pop'],
+                        stderr=subprocess.STDOUT,
+                        universal_newlines=True))
+
+                log.append(' $ git add -A .')
+
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'add', '-A', '.'],
+                        stderr=subprocess.STDOUT,
+                        universal_newlines=True))
+
+                log.append(' $ git diff --numstat')
+
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'diff', '--numstat'],
+                        stderr=subprocess.STDOUT,
+                        universal_newlines=True))
+
+                log.append(' $ git log --oneline -n10')
+
+                log.append(
+                    subprocess.check_output(
+                        ['git', 'log', '--oneline', '-n10'],
+                        stderr=subprocess.STDOUT,
+                        universal_newlines=True))
+            except BaseException:
+                log.append('\n'.join(traceback.format_exc()))
+            finally:
+                return '\n'.join([line.rstrip() for line in log])
+
+        async with ctx.typing():
+            msg = await ctx.send('This may run for up to 60 seconds...')
+            result = await ctx.bot.do_job_in_pool(executor) 
+            await msg.edit(content='Finished...')
+
+        pag = neko.PaginatedBook(
+            title='>>> UPDATE <<<', ctx=ctx,
+        )
+        pag.add_lines(result.replace('`', '\''))
+        await pag.send()
+
+    @command_grp.command(
+        name='tb',
+        brief='Prints the most recent traceback.')
+    async def get_tb(self, ctx):
+        book = neko.PaginatedBook(title='Last traceback', ctx=ctx)
+        if sys.exc_info()[0]:
+            book.add_lines(traceback.format_exc())
+        else:
+            book.add_lines('Nothing has broken \N{THINKING FACE}')
+        await book.send()
