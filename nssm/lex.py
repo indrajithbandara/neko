@@ -35,15 +35,15 @@ class Lexer:
         Returns an iterator expression that yields the
         next token, if there is one.
         """
-        # Skip any whitespace.
-        self._skip_whitespace()
+        # While true is used because self._skip_whitespace() should be
+        # called before performing the check on each iteration, and it saves
+        # duplicating code.
+        while True:
+            # Skip any whitespace.
+            self._skip_whitespace()
+            if self.index >= self._len:
+                break
 
-        # If we are past the max index, we should yield EOF and then
-        # close the iterator.
-        if self.index >= self._len:
-            yield tokens.eof
-            return None
-        else:
             # Next character determines what we do.
             next_char = self._peek()
 
@@ -65,24 +65,42 @@ class Lexer:
 
             # Otherwise, we raise an exception. Invalid token parsed.
             else:
-                # Find end of line.
-                index = self.index
-                while index < self._len and self._peek(index) not in '\n;':
-                    index += 1
-
                 raise ex.UndefinedTokenError(
                     self.index,
                     self.row,
                     self.col,
                     next_char,
-                    # Gets the entire line or statement.
-                    self._input[self.index + 1 - self.col:index])
+                    self._get_current_line())
+
+        yield tokens.eof
+        return None
 
     def _parse_identifier(self) -> tokens.IdentifierToken:
         """
         Parses an identifier.
         """
+        identifier = ''
+
         # First character must be alpha or underscore.
+        curr = self._peek()
+        if not curr.isalpha() and curr != '_':
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                '',
+                self._get_current_line())
+        else:
+            identifier += curr
+            self._go_forwards()
+            curr = self._peek()
+
+        while curr.isalnum() or curr in '_$':
+            identifier += curr
+            self._go_forwards()
+            curr = self._peek()
+
+        return tokens.IdentifierToken(identifier)
 
     def _parse_number(self) -> typing.Union[
                                     tokens.DecimalToken,
@@ -160,7 +178,7 @@ class Lexer:
         :param offset: the offset from the current position to peek at.
         :param count: the number of characters from this offset to peek.
             Defaults to 1.
-        :return: the character(s) peeked at.
+        :return: the character(s) peeked at. Returns null if EOF.
         """
         # Flags up any bad code.
         assert offset >= 0, 'Negative offset!'
@@ -170,5 +188,16 @@ class Lexer:
         end = start + count
         val = self._input[start:end]
 
-        assert len(val) == count, 'Possibly hit end of file badly.'
-        return val
+        if len(val) != end - start:
+            return '\0'
+        else:
+            return val
+
+    def _get_current_line(self) -> str:
+        """Attempts to extract the current line."""
+        # Find end of line.
+        index = self.index
+        while index < self._len and self._peek(index) not in '\n;\0':
+            index += 1
+
+        return self._input[self.index + 1 - self.col:index]
