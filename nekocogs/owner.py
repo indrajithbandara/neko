@@ -2,7 +2,7 @@
 Owner-only operations, administrative stuff, etc.
 """
 
-import asyncio
+import asyncio.subprocess
 import getpass
 import inspect
 import logging
@@ -347,7 +347,10 @@ class OwnerOnlyCog(neko.Cog):
 
         await book.send()
 
-    @neko.command(name='uptime', brief='Says how long I have been running for.')
+    @command_grp.command(
+        name='uptime',
+        brief='Says how long each bot has been running for.'
+    )
     async def get_uptime(self, ctx):
         msg = (
             f'Bot logged in at {ctx.bot.start_time} UTC, running without a '
@@ -355,3 +358,18 @@ class OwnerOnlyCog(neko.Cog):
         )
 
         await ctx.send(msg)
+
+    @command_grp.command(
+        name='update',
+        brief='Attempts to pull the most recent version of the bot from GitHub.'
+    )
+    async def git_pull(self, ctx):
+        """
+        Attempts to stash any local changes, and then git-pull from the remote.
+        """
+        # If there is a pre-existing stash, we should warn the author.
+        asyncio.create_subprocess_exec(
+            'git',
+            'stash',
+            'list')
+
