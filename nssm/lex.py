@@ -11,14 +11,18 @@ from . import tokens
 
 class Lexer:
     """
-    Implementation of a lexical analyser.
+    Implementation of a lexical analyser. These are iterable. In iterating
+    over the object, you will change the state and parse the next token.
+
+    To reuse the lexer, you should either make a new object, or call the
+    ``reset`` method.
 
     Usage:
 
     .. code-block: python
        lex = Lexer('<input here>')
 
-       tokens = [lex]
+       tokens = [token for token in lex]
     """
     def __init__(self, _input: str):
         # Positional information. Row,col is 1-based. Index is 0-based
@@ -29,6 +33,11 @@ class Lexer:
 
         # Cache this value.
         self._len = len(self._input)
+
+    def reset(self):
+        """Resets the state of the Lexer."""
+        self.index = 0
+        self.row = self.col = 1
 
     def __iter__(self):
         """
