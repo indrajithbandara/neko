@@ -49,9 +49,8 @@ class HelpCog(neko.Cog):
         self.bot = bot
 
     @neko.command(
-        name='rtfm',
+        name='help',
         brief='Shows help for the available bot commands.',
-        aliases=['man', 'help'],
         usage='|command|group command')
     async def help_command(self, ctx: neko.Context, *, query=None):
         """

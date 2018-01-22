@@ -459,3 +459,18 @@ class OwnerOnlyCog(neko.Cog):
         else:
             book.add_lines('Nothing has broken \N{THINKING FACE}')
         await book.send()
+
+    # noinspection PyProtectedMember
+    @command_grp.command(
+        name='reset_cooldown',
+        brief='Does what it says on the tin.')
+    async def reset_cooldown(self, ctx, command):
+        command = neko.find(lambda c: c.name == command or command in c.aliases,
+                            ctx.bot.walk_commands())
+
+        if command:
+            command._buckets._cooldown.reset()
+            command._buckets._cache.clear()
+            await ctx.send('Cooldown reset.', delete_after=10)
+        else:
+            await ctx.send('Couldn\'t find that command.')

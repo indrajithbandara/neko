@@ -106,8 +106,7 @@ class ReadTheSourceCog(neko.Cog):
     @neko.command(
         name='rtfs_recache',
         brief='Recaches the code.',
-        hidden=True
-    )
+        hidden=True)
     @commands.is_owner()
     async def recache_code(self, ctx):
         self.logger.info('Remote request by owner to recache.')

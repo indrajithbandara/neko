@@ -10,7 +10,6 @@ import discord.ext.commands as commands
 
 import neko
 
-
 _create_table = '''
 -- Note, BIGINT is 64bit signed
 CREATE TABLE IF NOT EXISTS nekozilla.tags (
@@ -64,7 +63,10 @@ class TagCog(neko.Cog):
         """
         Ensures commands are only runnable in guilds.
         """
-        return ctx.guild is not None
+        is_guild = ctx.guild is not None
+        is_bot = ctx.author.bot
+
+        return is_bot or is_guild
 
     async def on_connect(self):
         """
@@ -98,7 +100,7 @@ class TagCog(neko.Cog):
             for result in results:
                 name = result['name']
                 if result['is_global']:
-                    name = f'__{name}__'
+                    name = f'*{name}*'
                 if result['is_nsfw'] and not ctx.channel.nsfw:
                     # Hides NSFW commands from regular users unless in NSFW
                     # channels.
@@ -114,22 +116,40 @@ class TagCog(neko.Cog):
         brief='Text tags that can be defined and retrieved later',
         usage='tag_name',
         invoke_without_command=True)
-    async def tag_group(self, ctx: neko.Context, tag_name=None):
+    @neko.cooldown(5, 300, neko.CooldownType.user)
+    async def tag_group(self, ctx: neko.Context, tag_name=None, *args):
         """
         Displays the tag if it can be found. The local tags are searched
         first, and then the global tags.
 
         If we start the tag with an "!", then we try the global tags list first
         instead.
+
+        **22nd Jan 2018**:
+
+        I have added a few meta-commands into the mix. From now on, the
+        following can be added into a tag, and it will be resolved when the tag
+        is retrieved:
+
+        ${args} -> any text you put after the tag name.\r
+        ${channel} -> the channel name.\r
+        ${channel_mention} -> the channel name, but as a mention.\r
+        ${channel_id} -> the channel snowflake ID.\r
+        ${author} -> the display name of whoever invoked the tag.\r
+        ${author_mention} -> mentions whoever invoked the tag.\r
+        ${author_discriminator} -> shows the discriminator of whoever invoked
+        the tag.\r
+        ${author_username} -> shows the username of whoever invoked the tag.
+        ${author_id} -> shows the snowflake ID for the user who invoked the tag.
+        ${guild} -> shows the name of the guild (server) the tag is called on.
+        ${guild_id} -> shows the ID of the guild (server) the tag is called on.
         """
         if tag_name is None:
             book = neko.PaginatedBook(ctx=ctx, title='Tags', max_lines=15)
 
             desc = f'Run {ctx.prefix}help tag <command> for more info.\n\n'
 
-            page = neko.Page(
-                title='Tag commands'
-            )
+            page = neko.Page(title='Tag commands')
 
             cmds = {*self.tag_group.walk_commands()}
             for cmd in copy.copy(cmds):
@@ -182,12 +202,34 @@ class TagCog(neko.Cog):
             if not results:
                 raise neko.NekoCommandError('No tag found with that name.')
             else:
-                await ctx.send(results.pop(0)['content'])
+                content = results.pop(0)['content']
+
+                # We allow a few dynamic bits and pieces.
+                # TODO: document this.
+                replacements = {
+                    ('${args}', ' '.join(str(arg) for arg in args)),
+                    ('${channel}', str(ctx.channel.name)),
+                    ('${channel_mention}', f'<#{ctx.channel.id}>'),
+                    ('${channel_id}', str(ctx.channel.id)),
+                    ('${author}', str(ctx.author.display_name)),
+                    ('${author_mention}', str(ctx.author.mention)),
+                    ('${author_discriminator}', str(ctx.author.discriminator)),
+                    ('${author_username}', str(ctx.author.name)),
+                    ('${author_id}', str(ctx.author.id)),
+                    ('${guild}', str(ctx.guild.name)),
+                    ('${guild_id}', str(ctx.guild.id))
+                }
+
+                for replacement in replacements:
+                    content = content.replace(*replacement)
+
+                await ctx.send(content)
 
     @tag_group.command(
         name='inspect',
         brief='Inspects a given tag, showing who made it.',
-        usage='tag_name')
+        usage='tag_name',
+        hidden=True)
     @commands.is_owner()
     async def tag_inspect(self, ctx, tag_name):
         """
@@ -238,6 +280,7 @@ class TagCog(neko.Cog):
         brief='Add a local tag for this server',
         usage='tag_name content',
         invoke_without_command=True)
+    @neko.cooldown(1, 120, neko.CooldownType.user)
     async def tag_add(self, ctx, tag_name, *, content):
         """
         Adds a local tag. The tag cannot contain spaces, and if an existing
@@ -280,7 +323,8 @@ class TagCog(neko.Cog):
     @tag_add.command(
         name='global',
         brief='Adds a tag globally.',
-        usage='tag_name content')
+        usage='tag_name content',
+        hidden=True)
     @commands.is_owner()
     async def tag_add_global(self, ctx, tag_name, *, content):
         """
@@ -382,7 +426,8 @@ class TagCog(neko.Cog):
     @tag_group.command(
         name='promote',
         brief='Promotes a tag to be globally available.',
-        usage='tag_name')
+        usage='tag_name',
+        hidden=True)
     @commands.is_owner()
     async def tag_promote(self, ctx, tag_name):
         """
@@ -441,6 +486,7 @@ class TagCog(neko.Cog):
         brief='Removes a tag from the local server.',
         usage='tag_name',
         invoke_without_command=True)
+    @neko.cooldown(3, 300, neko.CooldownType.user)
     async def tag_remove(self, ctx, tag_name):
         """
         Removes a local tag. You can only do this if you own the tag.
@@ -450,7 +496,8 @@ class TagCog(neko.Cog):
     @tag_remove.command(
         name='global',
         brief='Deletes a global tag.',
-        usage='tag_name')
+        usage='tag_name',
+        hidden=True)
     @commands.is_owner()
     async def tag_remove_global(self, ctx, tag_name):
         """
@@ -503,6 +550,7 @@ class TagCog(neko.Cog):
         brief='Edits a local tag.',
         usage='tag_name new content',
         invoke_without_command=True)
+    @neko.cooldown(3, 300, neko.CooldownType.user)
     async def tag_edit(self, ctx, tag_name, *, new_content):
         """
         Edits a local tag. Only accessible if you already own the tag, or you
@@ -537,7 +585,8 @@ class TagCog(neko.Cog):
     @tag_edit.command(
         name='global',
         brief='Edits a global tag.',
-        usage='tag_name new content')
+        usage='tag_name new content',
+        hidden=True)
     @commands.is_owner()
     async def tag_edit_global(self, ctx, tag_name, *, new_content):
         """

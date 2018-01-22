@@ -595,8 +595,8 @@ class AutoUnitConversionCog(neko.Cog):
         detects one in the message.
         """
 
-        # Prevent responding in DMs.
-        if message.guild is None:
+        # Prevent responding in DMs, prevent responding to bots.
+        if message.guild is None or message.author.bot:
             return
 
         start_time = time.time()
