@@ -434,7 +434,7 @@ class OwnerOnlyCog(neko.Cog):
                         stderr=subprocess.STDOUT,
                         universal_newlines=True))
             except BaseException:
-                log.append('\n'.join(traceback.format_exc()))
+                log.append(traceback.format_exc())
             finally:
                 return '\n'.join([line.rstrip() for line in log])
 
