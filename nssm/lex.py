@@ -48,12 +48,12 @@ class Lexer:
             next_char = self._peek()
 
             # A digit will yield some kind of number.
-            if next_char.isnumeric():
+            if next_char.isnumeric() or next_char == '.':
                 yield self._parse_number()
 
             # Alpha character is an identifier, as is an underscore.
             elif next_char.isalpha() or next_char == '_':
-                yield self._parse_identifier()
+                yield self._parse_identifier_or_rw()
 
             # Single/double quotes denote the start of a string.
             elif next_char in '"\'':
@@ -63,21 +63,19 @@ class Lexer:
             elif next_char in '\n;':
                 yield self._parse_end_of_statement()
 
-            # Otherwise, we raise an exception. Invalid token parsed.
+            # Otherwise, we attempt to parse an operator.
             else:
-                raise ex.UndefinedTokenError(
-                    self.index,
-                    self.row,
-                    self.col,
-                    next_char,
-                    self._get_current_line())
+                yield self._parse_operator()
 
         yield tokens.eof
         return None
 
-    def _parse_identifier(self) -> tokens.IdentifierToken:
+    def _parse_identifier_or_rw(self) -> typing.Union[
+                                             tokens.IdentifierToken,
+                                             tokens.ReserveWordToken
+                                         ]:
         """
-        Parses an identifier.
+        Parses an identifier or reserve word.
         """
         identifier = ''
 
@@ -89,18 +87,25 @@ class Lexer:
                 self.row,
                 self.col,
                 '',
-                self._get_current_line())
+                self._current_line)
         else:
+            # If it is a reserve word, fetch it.
+            for rw, t in tokens.ReserveWordToken.reserve_words.items():
+                if self._starts_with(rw):
+                    self._go_forwards(len(rw))
+                    return t
+
+            # Otherwise, it is definitely an identifier.
             identifier += curr
             self._go_forwards()
             curr = self._peek()
 
-        while curr.isalnum() or curr in '_$':
-            identifier += curr
-            self._go_forwards()
-            curr = self._peek()
+            while curr.isalnum() or curr in '_$':
+                identifier += curr
+                self._go_forwards()
+                curr = self._peek()
 
-        return tokens.IdentifierToken(identifier)
+            return tokens.IdentifierToken(identifier)
 
     def _parse_number(self) -> typing.Union[
                                     tokens.DecimalToken,
@@ -110,21 +115,174 @@ class Lexer:
         Attempts to parse an integer or float. An integer can be in binary,
         hexadecimal, octal or decimal format.
         """
-        raise NotImplementedError
+        if self._starts_with('0b', '0B'):
+            return self._parse_bin()
+        elif self._starts_with('0o', '0O'):
+            return self._parse_oct()
+        elif self._starts_with('0x', '0X'):
+            return self._parse_hex()
 
-    def _parse_string(self) -> tokens.StringToken:
+        # If we reach here, we have a base-10 int, or a float.
+        # Floats will have one, or both of a decimal point, and
+        # an exponent.
+        is_float = False
+        number_str = ''
+
+        curr = self._peek()
+        if curr.isdigit():
+            number_str += self._parse_int()
+            curr = self._peek()
+
+        if curr == '.':
+            is_float = True
+            number_str += '.'
+            self._go_forwards()
+            curr = self._peek()
+
+        if curr.isdigit():
+            number_str += self._parse_int()
+            curr = self._peek()
+
+        if curr in 'eE':
+            is_float = True
+            number_str += 'e'
+            self._go_forwards()
+            curr = self._peek()
+            if curr in '+-':
+                number_str += curr
+                self._go_forwards()
+            number_str += self._parse_int()
+
+        if len(number_str) == 0:
+            raise RuntimeError('Not a number.')
+        elif is_float:
+            return tokens.RealToken(float(number_str))
+        else:
+            return tokens.DecimalToken(int(number_str))
+
+    def _parse_int(self) -> str:
+        """Parses a base-10 integer of 1 or more digits."""
+        # One or more binary digits must follow.
+        int_str = self.__ensure_at_least_one(str.isdigit)
+        return int_str
+
+    def _parse_hex(self) -> tokens.DecimalToken:
+        """
+        Parses a hexadecimal string of digits into an int.
+        """
+        valid_hex = '0123456789ABCDEF'
+        if not self._starts_with('0x', '0X'):
+            raise RuntimeError('Not a hexadecimal token.')
+        else:
+            self._go_forwards(2)
+
+        # One or more hex digits must follow.
+        hex_str = self.__ensure_at_least_one(lambda c: c in valid_hex)
+        val = int(hex_str, base=16)
+        return tokens.DecimalToken(val)
+
+    def _parse_oct(self) -> tokens.DecimalToken:
+        """
+        Parses an octal string of digits into an int.
+        """
+        if not self._starts_with('0o', '0O'):
+            raise RuntimeError('Not an octal token.')
+        else:
+            self._go_forwards(2)
+
+        # One or more octal digits must follow.
+        oct_str = self.__ensure_at_least_one(
+            lambda c: c in '01234567')
+        
+        val = int(oct_str, base=8)
+        return tokens.DecimalToken(val)
+
+    def _parse_bin(self) -> tokens.DecimalToken:
+        """
+        Parses a binary string of digits into an int.
+        """
+        if not self._starts_with('0b', '0B'):
+            raise RuntimeError('Not a binary token.')
+        else:
+            self._go_forwards(2)
+
+        # One or more binary digits must follow.
+        bin_str = self.__ensure_at_least_one(lambda c: c in '01')
+        val = int(bin_str, base=2)
+        return tokens.DecimalToken(val)
+
+    def __ensure_at_least_one(self,
+                              predicate: typing.Callable[[str], bool]) -> str:
+        """
+        Captures characters from the input. We capture
+        as many as we can, but we ENFORCE that we get
+        a match on the first character, else we raise
+        an InvalidTokenError. The presence of a non-match
+        after this will just terminate capturing, and
+        return a string of what we already parsed.
+        """
+        curr = self._peek()
+        if not predicate(curr):
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                curr,
+                self._current_line)
+
+        parsed = curr
+        self._go_forwards()
+
+        while True:
+            curr = self._peek()
+            if not predicate(curr):
+                break
+            else:
+                parsed += curr
+                self._go_forwards()
+
+        assert len(parsed) > 0
+        return parsed
+
+    def _parse_string(self) -> typing.NoReturn:  # -> tokens.StringToken:
         """
         Parses a string.
         """
+        opening_quote = self._peek()
+        if opening_quote not in '\'"':
+            raise RuntimeError('Not a string.')
         raise NotImplementedError
+
+    def _parse_operator(self) -> tokens.OperatorToken:
+        """
+        Parses an operator or other Misc token.
+        """
+        for lit, t in tokens.OperatorToken.operators.items():
+            if self._starts_with(lit):
+                # Move forwards
+                self._go_forwards(len(lit))
+                return t
+
+        raise ex.UndefinedTokenError(
+            self.index,
+            self.row,
+            self.col,
+            self._peek(),
+            self._current_line)
 
     def _parse_end_of_statement(self) -> tokens.Token:
         """
-        This will parse the end of a statement, which can either be a semicolon
-        or a newline character. This will also skip any whitespace up to the
-        next non-whitespace token, including newlines.
+        This will parse the end of a statement, which can either
+        be a semicolon or a newline character. This will also
+        skip any whitespace up to the next non-whitespace token,
+        including newlines.
         """
-        raise NotImplementedError
+        curr = self._peek()
+        if curr not in ';\n':
+            raise RuntimeError('Not an end of statement.')
+        else:
+            self._go_forwards()
+            return tokens.eos
 
     def _skip_whitespace(self) -> None:
         """
@@ -193,7 +351,8 @@ class Lexer:
         else:
             return val
 
-    def _get_current_line(self) -> str:
+    @property
+    def _current_line(self) -> str:
         """Attempts to extract the current line."""
         # Find end of line.
         index = self.index

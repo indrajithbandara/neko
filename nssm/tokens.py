@@ -1,8 +1,25 @@
 """
 Implementations of various tokens.
 """
+import abc
+import collections
 import enum
 import typing
+
+__all__ = (
+    'Type', 'Token', 'UndefinedToken', 'DecimalToken', 'RealToken',
+    'StringToken', 'IdentifierToken', 'OperatorToken',
+    'ReserveWordToken', 'MiscToken', 'eos', 'eof', 'int_divide_ass',
+    'pow_ass', 'bsl_ass', 'inc', 'dec', 'plus_ass', 'times_ass',
+    'divide_ass', 'modulo_ass', 'not_equal', 'power', 'int_divide',
+    'bsr', 'bsl', 'equal', 'lte', 'gte', 'band_ass', 'bxor_ass',
+    'bor_ass', 'lor', 'land', 'question', 'colon', 'plus', 'minus',
+    'modulo', 'bang', 'tilde', 'times', 'divide', 'lt', 'gt', 'ass',
+    'band', 'bor', 'bxor', 'comma', 'lparen', 'rparen', 'lsquare',
+    'rsquare', 'lbrace', 'rbrace', 'for_rw', 'while_rw', 'if_rw',
+    'elif_rw', 'else_rw', 'continue_rw', 'break_rw', 'in_rw',
+    'return_rw'
+)
 
 __flag = 1
 
@@ -40,6 +57,9 @@ class Type(enum.IntFlag):
     value = fixed_value | identifier
     # Operators
     operator = _flag()
+    reserve_word = _flag()
+    # Built in type
+    builtin = operator | reserve_word | fixed_value
     # Other token
     other = _flag()
 
@@ -47,26 +67,32 @@ class Type(enum.IntFlag):
 T = typing.TypeVar('T')
 
 
-class Token:
+class Token(abc.ABC):
+    """Abstract type of token."""
+    __slots__ = ('_name', '_value', '_token_type')
+
     def __init__(self, name: str, value: T, token_type: Type):
         # Prevent me doing anything to mutate these by accident later.
         # as we expect to rebuild them as nodes in an AST rather than
         # reuse the token type.
-        self.__name = name
-        self.__value = value
-        self.__token_type = token_type
+        self._name = name
+        self._value = value
+        self._token_type = token_type
 
     @property
     def name(self) -> str:
-        return self.__name
+        """Token name."""
+        return self._name
 
     @property
     def value(self) -> T:
-        return self.__value
+        """Token raw value."""
+        return self._value
 
     @property
     def token_type(self) -> Type:
-        return self.__token_type
+        """Token type flag."""
+        return self._token_type
 
     def __str__(self):
         return f'{self.name} token'
@@ -75,47 +101,82 @@ class Token:
         return (f'<Token name={self.name!r} value={self.value!r} '
                 f'type={self.token_type!r}>)')
 
+    def __eq__(self, other):
+        """Equality is determined by value."""
+        if not isinstance(other, Token):
+            return other.value == self.value
+
 
 class UndefinedToken(Token):
     """Undefined token that is not understood."""
+
     def __init__(self, value: typing.Any):
         super().__init__('Undefined', value, Type.undefined)
 
 
 class DecimalToken(Token):
     """Decimal token."""
+
     def __init__(self, value: int):
-        super().__init__('Integer', value, Type.decimal_int)
+        super().__init__('Integer', value, Type.int)
 
 
 class RealToken(Token):
     """Real token."""
+
     def __init__(self, value: float):
         super().__init__('Real number', value, Type.real)
 
 
 class StringToken(Token):
     """String token."""
+
     def __init__(self, value: str):
         super().__init__('String', value, Type.string)
 
 
 class IdentifierToken(Token):
     """Some identifier for a function, variable, builtin, or other object."""
+
     def __init__(self, identifier_name: str):
         super().__init__('Identifier', identifier_name, Type.identifier)
 
 
 class OperatorToken(Token):
     """An operator."""
+
+    # Maps operator literals to their respective operator
+    # objects.
+    operators = collections.OrderedDict()
+
     def __init__(self, name: str, symbol: str):
         super().__init__(name, symbol, Type.operator)
+        type(self).operators[symbol] = self
+
+
+class ReserveWordToken(Token):
+    """A reserve word."""
+
+    # Maps operator literals to their respective operator
+    # objects.
+    reserve_words = collections.OrderedDict()
+
+    def __init__(self, name: str):
+        super().__init__(name, name, Type.reserve_word)
+        type(self).reserve_words[name] = self
 
 
 class MiscToken(Token):
     """Another type of token that does not match the existing criteria."""
+
+    # Maps misc tokens to their respective operator
+    # objects.
+    tokens = collections.OrderedDict()
+
+
     def __init__(self, name: str, value: typing.Optional[str]):
         super().__init__(name, value, Type.other)
+        type(self).tokens[name] = self
 
 
 """
@@ -143,8 +204,16 @@ literal, otherwise if `*` is placed before `**`, then `**` will always
 be interpreted as `*`, since `**` starts with `*`.
 """
 
+# This signifies end-of-statement.
+eos = MiscToken(
+    'End of statement',
+    'EOL')
 
-# Operators
+eof = MiscToken(
+    'End of file',
+    None)
+
+
 int_divide_ass = OperatorToken(
     'Integer divide/assign',
     '//=')
@@ -241,37 +310,13 @@ land = OperatorToken(
     'Logical-and',
     '&&')
 
-question = MiscToken(
+question = OperatorToken(
     'Question mark',
     '?')
 
-colon = MiscToken(
+colon = OperatorToken(
     'Colon',
     ':')
-
-lparen = MiscToken(
-    'Left parenthesis',
-    '(')
-
-rparen = MiscToken(
-    'Right parenthesis',
-    ')')
-
-lsquare = MiscToken(
-    'Left square-bracket',
-    '[')
-
-rsquare = MiscToken(
-    'Right square-bracket',
-    ']')
-
-lbrace = MiscToken(
-    'Left brace',
-    '{')
-
-rbrace = MiscToken(
-    'Right brace',
-    '}')
 
 plus = OperatorToken(
     'Plus',
@@ -325,28 +370,41 @@ bxor = OperatorToken(
     'Bitwise-xor',
     '^')
 
-comma = MiscToken(
+comma = OperatorToken(
     'Comma',
     ',')
 
-# This signifies end-of-statement.
-eos = MiscToken(
-    'End of statement',
-    'EOL')
+lparen = OperatorToken(
+    'Left parenthesis',
+    '(')
 
-eof = MiscToken(
-    'End of file',
-    None)
+rparen = OperatorToken(
+    'Right parenthesis',
+    ')')
+
+lsquare = OperatorToken(
+    'Left square-bracket',
+    '[')
+
+rsquare = OperatorToken(
+    'Right square-bracket',
+    ']')
+
+lbrace = OperatorToken(
+    'Left brace',
+    '{')
+
+rbrace = OperatorToken(
+    'Right brace',
+    '}')
 
 
-operators = (
-    int_divide_ass, pow_ass, bsr_ass, bsl_ass, inc, dec, plus_ass, minus_ass,
-    times_ass, divide_ass, modulo_ass, not_equal, power, int_divide, bsr,
-    bsl, equal, lte, gte, band_ass, bxor_ass, lor, land
-)
-
-other_tokens = (
-    lparen, rparen, lsquare, rsquare, lbrace, rbrace, colon, question
-)
-
-special_tokens = (eos, eof)
+for_rw = ReserveWordToken('for')
+while_rw = ReserveWordToken('while')
+if_rw = ReserveWordToken('if')
+elif_rw = ReserveWordToken('elif')
+else_rw = ReserveWordToken('else')
+continue_rw = ReserveWordToken('continue')
+break_rw = ReserveWordToken('break')
+in_rw = ReserveWordToken('in')
+return_rw = ReserveWordToken('return')
