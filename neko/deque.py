@@ -6,6 +6,8 @@ deque.
 
 class ReadOnlyIterable:
     """Provides readonly access to a list."""
+    __slots__ = ('_list',)
+
     def __init__(self, *items):
         self._list = [*items]
 
