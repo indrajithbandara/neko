@@ -372,24 +372,7 @@ class OwnerOnlyCog(neko.Cog):
         def executor():
             log = []
             try:
-                log.append('>>> DROPPING EXISTING STASH! <<<')
-                log.append(' $ git stash clear')
-
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'stash', 'clear'], stderr=subprocess.STDOUT,
-                        universal_newlines=True))
-
-                log.append(' $ git stash\n')
-
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'stash'], stderr=subprocess.STDOUT,
-                        universal_newlines=True))
-
-                log.append('>>> UPDATING SOURCE CODE! <<<')
-
-                log.append(' $ git pull --all')
+                log.append('$ git pull --all')
 
                 # Pulls may be large. We allow up to one minute before we kill
                 # it.
@@ -400,25 +383,7 @@ class OwnerOnlyCog(neko.Cog):
                         timeout=60_000,
                         universal_newlines=True))
 
-                log.append('>>> ATTEMPTING TO RESTORE SOURCE CODE STATE! <<<')
-
-                log.append(' $ git stash pop')
-
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'stash', 'pop'],
-                        stderr=subprocess.STDOUT,
-                        universal_newlines=True))
-
-                log.append(' $ git add -A .')
-
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'add', '-A', '.'],
-                        stderr=subprocess.STDOUT,
-                        universal_newlines=True))
-
-                log.append(' $ git diff --numstat')
+                log.append('$ git diff --numstat')
 
                 log.append(
                     subprocess.check_output(
@@ -426,14 +391,14 @@ class OwnerOnlyCog(neko.Cog):
                         stderr=subprocess.STDOUT,
                         universal_newlines=True))
 
-                log.append(' $ git log --oneline -n10')
+                log.append('$ git log --oneline -n10')
 
                 log.append(
                     subprocess.check_output(
                         ['git', 'log', '--oneline', '-n10'],
                         stderr=subprocess.STDOUT,
                         universal_newlines=True))
-            except BaseException:
+            except subprocess.CalledProcessError:
                 log.append(traceback.format_exc())
             finally:
                 return '\n'.join([line.rstrip() for line in log])
