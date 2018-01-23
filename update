@@ -16,7 +16,7 @@ echo "Checking for existing changes."
 git stash --show || echo "WARNING. YOU ALREADY HAVE STASHED CHANGES."
 git stash || exit_zero
 
-git pull --all --no-edit --squash --stat || exit_zero
+git pull --all || exit_zero
 
 echo "Unstashing the most recent stash."
 git stash pop
