@@ -1,5 +1,4 @@
-#!/bin/bash
-set +x trace
+#!/bin/bash +x
 
 TRUE=0
 FALSE=1
@@ -24,3 +23,6 @@ git stash pop
 echo "Changes made:"
 git diff --stat HEAD HEAD~1 || exit_zero
 git log --oneline -n 10 || exit_zero
+
+echo "Grand total LOC"
+wc -l $(find n* -name '*.py' -o -name '*.sql' -o -name '*.json' -o -name '*.md')
