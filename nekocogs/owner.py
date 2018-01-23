@@ -369,50 +369,13 @@ class OwnerOnlyCog(neko.Cog):
         """
         Attempts to stash any local changes, and then git-pull from the remote.
         """
-        def executor():
-            log = []
-            try:
-                log.append('$ git pull --all')
-
-                # Pulls may be large. We allow up to one minute before we kill
-                # it.
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'pull', '--all'],
-                        stderr=subprocess.STDOUT,
-                        timeout=60_000,
-                        universal_newlines=True))
-
-                log.append('$ git diff --numstat')
-
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'diff', '--numstat'],
-                        stderr=subprocess.STDOUT,
-                        universal_newlines=True))
-
-                log.append('$ git log --oneline -n10')
-
-                log.append(
-                    subprocess.check_output(
-                        ['git', 'log', '--oneline', '-n10'],
-                        stderr=subprocess.STDOUT,
-                        universal_newlines=True))
-            except subprocess.CalledProcessError:
-                log.append(traceback.format_exc())
-            finally:
-                return '\n'.join([line.rstrip() for line in log])
-
-        async with ctx.typing():
-            msg = await ctx.send('This may run for up to 60 seconds...')
-            result = await ctx.bot.do_job_in_pool(executor) 
-            await msg.edit(content='Finished...')
-
-        pag = neko.PaginatedBook(
-            title='>>> UPDATE <<<', ctx=ctx,
-        )
-        pag.add_lines(result.replace('`', '\''))
-        await pag.send()
+        def _sp_call():
+            return subprocess.check_output(
+               './update', stderr=subprocess.STDOUT, universal_newlines=True)
+        result = await ctx.bot.do_job_in_pool(_sp_call)
+        book = neko.PaginatedBook(title='>>>UPDATE<<<', ctx=ctx)
+        book.add_lines(result)
+        await book.send()
 
     @command_grp.command(
         name='tb',

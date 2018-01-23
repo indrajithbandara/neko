@@ -1,0 +1,26 @@
+#!/bin/bash
+set +x trace
+
+TRUE=0
+FALSE=1
+
+# First ensure execution permissions for this script and directory.
+# This is just to alert me to the RWX permissions.
+stat .
+stat $(basename ${0})
+
+function exit_zero() {
+    echo "Command exited with non-zero code ${?}." && exit 0
+}
+echo "Checking for existing changes."
+git stash --show || echo "WARNING. YOU ALREADY HAVE STASHED CHANGES."
+git stash || exit_zero
+
+git pull --all --no-edit --squash --stat || exit_zero
+
+echo "Unstashing the most recent stash."
+git stash pop
+
+echo "Changes made:"
+git diff --stat HEAD HEAD~1 || exit_zero
+git log --oneline -n 10 || exit_zero

@@ -19,7 +19,7 @@ What will it not support?
 -------------------------
 
 - Reflection.
-- Type safety.
+- TokenType safety.
 - Object Orientation.
 - Reflection.
 - Modules.

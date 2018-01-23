@@ -3,10 +3,46 @@ Lexical analysis stage.
 
 Takes a string or strings as input and generates a collection of tokens.
 """
+import inspect
 import typing
+
+import unicodedata
 
 from . import ex
 from . import tokens
+
+__all__ = ('Lexer',)
+
+# https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences
+_fixed_esc_c = {
+    'a': '\a',
+    'b': '\b',
+    'f': '\f',
+    'n': '\n',
+    'r': '\r',
+    'v': '\v',
+    '\'': '\'',
+    '\\': '\\',
+    '"': '"'
+}
+
+
+def _is_binary(c):
+    """Ensures character is a binary digit."""
+    return c in '01'
+
+
+_is_digit = str.isdigit
+
+
+def _is_octal(c):
+    """Ensures character is an octal digit."""
+    return c in '01234567'
+
+
+def _is_hex(c):
+    """Ensures character is a hexadecimal digit."""
+    return c in '0123456789ABCDEFabcdef'
 
 
 class Lexer:
@@ -24,8 +60,15 @@ class Lexer:
 
        tokens = [token for token in lex]
     """
+
     def __init__(self, _input: str):
         # Positional information. Row,col is 1-based. Index is 0-based
+
+        # This saves processing later. Replace any instances of a backslash
+        # followed by a new line immediately with emptystring. This allows
+        # for continuation of lines in the script.
+        _input = _input.replace('\\\n', '')
+
         self.row = 1
         self.col = 1
         self.index = 0
@@ -38,6 +81,10 @@ class Lexer:
         """Resets the state of the Lexer."""
         self.index = 0
         self.row = self.col = 1
+
+    def __len__(self):
+        """Gets the stored length of the input."""
+        return self._len
 
     def __iter__(self):
         """
@@ -76,13 +123,13 @@ class Lexer:
             else:
                 yield self._parse_operator()
 
+        # Kill the iterator here.
         yield tokens.eof
-        return None
 
     def _parse_identifier_or_rw(self) -> typing.Union[
-                                             tokens.IdentifierToken,
-                                             tokens.ReserveWordToken
-                                         ]:
+        tokens.IdentifierToken,
+        tokens.ReserveWordToken
+    ]:
         """
         Parses an identifier or reserve word.
         """
@@ -117,9 +164,9 @@ class Lexer:
             return tokens.IdentifierToken(identifier)
 
     def _parse_number(self) -> typing.Union[
-                                    tokens.DecimalToken,
-                                    tokens.RealToken
-                               ]:
+        tokens.IntToken,
+        tokens.RealToken
+    ]:
         """
         Attempts to parse an integer or float. An integer can be in binary,
         hexadecimal, octal or decimal format.
@@ -163,104 +210,208 @@ class Lexer:
             number_str += self._parse_int()
 
         if len(number_str) == 0:
-            raise RuntimeError('Not a number.')
+            raise ex.UndefinedTokenError(
+                self.index,
+                self.row,
+                self.col,
+                self._peek(),
+                self._current_line,
+                'Not a number.'
+            )
         elif is_float:
             return tokens.RealToken(float(number_str))
         else:
-            return tokens.DecimalToken(int(number_str))
+            return tokens.IntToken(int(number_str))
 
     def _parse_int(self) -> str:
         """Parses a base-10 integer of 1 or more digits."""
         # One or more binary digits must follow.
-        int_str = self.__ensure_at_least_one(str.isdigit)
+        int_str = self.__ensure_at_least_one(
+            _is_digit,
+            'Invalid decimal integer literal.')
+
         return int_str
 
-    def _parse_hex(self) -> tokens.DecimalToken:
+    def _parse_hex(self) -> tokens.IntToken:
         """
         Parses a hexadecimal string of digits into an int.
         """
-        valid_hex = '0123456789ABCDEF'
         if not self._starts_with('0x', '0X'):
-            raise RuntimeError('Not a hexadecimal token.')
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                self._peek(),
+                self._current_line,
+                'Not a hexadecimal token.')
         else:
             self._go_forwards(2)
 
         # One or more hex digits must follow.
-        hex_str = self.__ensure_at_least_one(lambda c: c in valid_hex)
-        val = int(hex_str, base=16)
-        return tokens.DecimalToken(val)
+        hex_str = self.__ensure_at_least_one(
+            _is_hex,
+            'Invalid hexadecimal literal.')
 
-    def _parse_oct(self) -> tokens.DecimalToken:
+        val = int(hex_str, base=16)
+        return tokens.IntToken(val)
+
+    def _parse_oct(self) -> tokens.IntToken:
         """
         Parses an octal string of digits into an int.
         """
         if not self._starts_with('0o', '0O'):
-            raise RuntimeError('Not an octal token.')
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                self._peek(),
+                self._current_line,
+                'Not an octal token.')
         else:
             self._go_forwards(2)
 
         # One or more octal digits must follow.
         oct_str = self.__ensure_at_least_one(
-            lambda c: c in '01234567')
-        
-        val = int(oct_str, base=8)
-        return tokens.DecimalToken(val)
+            _is_octal,
+            'Invalid octal literal.')
 
-    def _parse_bin(self) -> tokens.DecimalToken:
+        val = int(oct_str, base=8)
+        return tokens.IntToken(val)
+
+    def _parse_bin(self) -> tokens.IntToken:
         """
         Parses a binary string of digits into an int.
         """
         if not self._starts_with('0b', '0B'):
-            raise RuntimeError('Not a binary token.')
-        else:
-            self._go_forwards(2)
-
-        # One or more binary digits must follow.
-        bin_str = self.__ensure_at_least_one(lambda c: c in '01')
-        val = int(bin_str, base=2)
-        return tokens.DecimalToken(val)
-
-    def __ensure_at_least_one(self,
-                              predicate: typing.Callable[[str], bool]) -> str:
-        """
-        Captures characters from the input. We capture
-        as many as we can, but we ENFORCE that we get
-        a match on the first character, else we raise
-        an InvalidTokenError. The presence of a non-match
-        after this will just terminate capturing, and
-        return a string of what we already parsed.
-        """
-        curr = self._peek()
-        if not predicate(curr):
             raise ex.InvalidTokenError(
                 self.index,
                 self.row,
                 self.col,
-                curr,
-                self._current_line)
+                self._peek(),
+                self._current_line,
+                'Not a binary token.')
+        else:
+            self._go_forwards(2)
 
-        parsed = curr
-        self._go_forwards()
+        # One or more binary digits must follow.
+        bin_str = self.__ensure_at_least_one(
+            _is_binary,
+            'Invalid binary literal.')
 
-        while True:
-            curr = self._peek()
-            if not predicate(curr):
-                break
-            else:
-                parsed += curr
-                self._go_forwards()
+        val = int(bin_str, base=2)
+        return tokens.IntToken(val)
 
-        assert len(parsed) > 0
-        return parsed
-
-    def _parse_string(self) -> typing.NoReturn:  # -> tokens.StringToken:
+    def _parse_string(self) -> tokens.StringToken:
         """
         Parses a string.
         """
-        opening_quote = self._peek()
-        if opening_quote not in '\'"':
-            raise RuntimeError('Not a string.')
-        raise NotImplementedError
+        # We match this later.
+        opener = self._peek()
+        if opener not in '\'"':
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                self._peek(),
+                self._current_line,
+                'Not a string.')
+        else:
+            self._go_forwards()
+
+        string = ''
+
+        while True:
+            if self.index >= self._len:
+                raise ex.UnclosedStringError(
+                    self.index,
+                    self.row,
+                    self.col,
+                    self._peek(),
+                    self._current_line,
+                    'String was not closed')
+
+            curr = self._peek()
+
+            # Handle an escape character
+            if curr == '\\':
+                self._go_forwards()
+                curr = self._peek()
+
+                if curr in _fixed_esc_c:
+                    string += _fixed_esc_c[curr]
+                    self._go_forwards()
+
+                # Parses utf escape. This is up to 8 UTF-8 characters.
+                elif curr == 'u':
+                    self._go_forwards()
+                    char_seq = self.__ensure_at_least_one(
+                        _is_hex,
+                        'Invalid UTF-8 literal.')
+
+                    # Parse the char sequence as UTF-8.
+                    try:
+                        char_seq = chr(int(char_seq, 16))
+                    except ValueError as err:
+                        # Raised if out of the range 0 <= i <= 0x10FFFF
+                        raise ex.InvalidTokenError(
+                            self.index,
+                            self.row,
+                            self.col,
+                            self._peek(),
+                            self._current_line,
+                            str(err)) from None
+                    else:
+                        string += char_seq
+                elif curr == 'N':
+                    self._go_forwards(2)
+                    descriptor = self.__ensure_at_least_one(
+                        lambda c: c != '}',
+                        'Invalid UTF-8 character description.')
+
+                    if self._peek() != '}':
+                        raise ex.InvalidTokenError(
+                            self.index,
+                            self.row,
+                            self.col,
+                            self._peek(),
+                            self._current_line,
+                            'UTF-8 description was not closed.')
+
+                    try:
+                        descriptor = unicodedata.lookup(descriptor)
+
+                        # Skip the '}'
+                        self._go_forwards()
+                        string += descriptor
+                    except KeyError as err:
+                        raise ex.InvalidTokenError(
+                            self.index,
+                            self.row,
+                            self.col,
+                            self._peek(),
+                            self._current_line,
+                            str(err)) from None
+                else:
+                    raise ex.InvalidTokenError(
+                            self.index,
+                            self.row,
+                            self.col,
+                            self._peek(),
+                            self._current_line,
+                            f'Unrecognised escape sequence `\\{self._peek()}`.')
+            elif curr != opener:
+                string += curr
+                # Proceed forwards.
+                self._go_forwards()
+            else:
+                # We have reached the end of the string, and it is valid.
+                break
+
+        # Skip the end quote.
+        self._go_forwards()
+
+        # Return the parsed string.
+        return tokens.StringToken(string)
 
     def _parse_operator(self) -> tokens.OperatorToken:
         """
@@ -285,13 +436,35 @@ class Lexer:
         be a semicolon or a newline character. This will also
         skip any whitespace up to the next non-whitespace token,
         including newlines.
+
+        This also strips out consecutive newlines, and handles semicolons
+        correctly. ADDITIONALLY, it allows lines to have whitespace on them,
+        whilst still ignoring them for the most part.
+
+        Thus `\n\n;\n\n` will be resolved to `EOL,EOF` in this tokenizer.
+        This will save slight memory, and means code is slightly shorter too.
         """
         curr = self._peek()
-        if curr not in ';\n':
-            raise RuntimeError('Not an end of statement.')
-        else:
-            self._go_forwards()
-            return tokens.eos
+        if curr != ';':
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                curr,
+                self._current_line,
+                'Not an end of statement.')
+
+        self._go_forwards()
+
+        while True:
+            self._skip_whitespace()
+            curr = self._peek()
+            if curr != ';':
+                break
+            else:
+                self._go_forwards()
+
+        return tokens.eos
 
     def _skip_whitespace(self) -> None:
         """
@@ -300,10 +473,10 @@ class Lexer:
         will do nothing, so it is safe to call anywhere where you may expect
         an optional series of whitespace characters.
         """
-        while self._starts_with(' ', '\t'):
+        while self._peek().isspace():
             self._go_forwards()
 
-    def _go_forwards(self, how_far: int=1) -> None:
+    def _go_forwards(self, how_far: int = 1) -> None:
         """
         Moves the pointer forwards by ``how_far``. If a newline is encountered,
         then we automatically adjust any indexes.
@@ -339,7 +512,7 @@ class Lexer:
 
         return any(self._input[self.index:].startswith(s) for s in strings)
 
-    def _peek(self, offset: int=0, count: int=1) -> str:
+    def _peek(self, offset: int = 0, count: int = 1) -> str:
         """
         Peeks at the substring that is waiting to be tokenize-d.
         :param offset: the offset from the current position to peek at.
@@ -369,3 +542,47 @@ class Lexer:
             index += 1
 
         return self._input[self.index + 1 - self.col:index]
+
+    def __ensure_at_least_one(self,
+                              predicate: typing.Callable[[str], bool],
+                              desc: typing.Optional[str] = None) -> str:
+        """
+        Captures characters from the input. We capture as many as we can, but we
+        ENFORCE that we get a match on the first character, else we raise an
+        InvalidTokenError. The presence of a non-match after this will just
+        terminate capturing, and return a string of what we already parsed.
+
+        :param predicate: the predicate to use to validate each character.
+        :param desc: the description to use if an error occurs. If this is
+                None, or unspecified, then we default to the docstring for the
+                predicate. If this is undefined, we supply no message body to
+                any error.
+        """
+        if not desc:
+            desc = inspect.cleandoc(inspect.getdoc(predicate))
+            if not desc:
+                desc = ''
+
+        curr = self._peek()
+        if not predicate(curr):
+            raise ex.InvalidTokenError(
+                self.index,
+                self.row,
+                self.col,
+                curr,
+                self._current_line,
+                desc)
+
+        parsed = curr
+        self._go_forwards()
+
+        while True:
+            curr = self._peek()
+            if not predicate(curr):
+                break
+            else:
+                parsed += curr
+                self._go_forwards()
+
+        assert len(parsed) > 0
+        return parsed
