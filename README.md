@@ -59,7 +59,7 @@ GRANT create ON DATABASE postgres TO user;
 
 The `config.json` file must consist of a root JSON object, and the following mandatory fields:
 
-| Identifier | Data Type | Description |                              
+| Identifier | Data TokenType | Description |                              
 | :-- | :-- | :-- |
 | `client_id` | `int` | The bot's client/user ID. |
 | `token` | `str` | The bot's token. |

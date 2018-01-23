@@ -4,10 +4,11 @@ Implementations of various tokens.
 import abc
 import collections
 import enum
+import math
 import typing
 
 __all__ = (
-    'Type', 'Token', 'UndefinedToken', 'DecimalToken', 'RealToken',
+    'TokenType', 'Token', 'UndefinedToken', 'IntToken', 'RealToken',
     'StringToken', 'IdentifierToken', 'OperatorToken',
     'ReserveWordToken', 'MiscToken', 'eos', 'eof', 'int_divide_ass',
     'pow_ass', 'bsl_ass', 'inc', 'dec', 'plus_ass', 'times_ass',
@@ -18,20 +19,11 @@ __all__ = (
     'band', 'bor', 'bxor', 'comma', 'lparen', 'rparen', 'lsquare',
     'rsquare', 'lbrace', 'rbrace', 'for_rw', 'while_rw', 'if_rw',
     'elif_rw', 'else_rw', 'continue_rw', 'break_rw', 'in_rw',
-    'return_rw'
+    'return_rw', 'true_rw', 'false_rw', 'nan_rw', 'null_rw', 'inf_rw'
 )
 
-__flag = 1
 
-
-def _flag():
-    global __flag
-    val = __flag
-    __flag <<= 1
-    return val
-
-
-class Type(enum.IntFlag):
+class TokenType(enum.IntFlag):
     """
     Types of token.
 
@@ -48,20 +40,20 @@ class Type(enum.IntFlag):
     undefined = 0
 
     # "Compile"-time fixed types
-    int = _flag()  # Integer, either base 2, 8, 10 or 16.
-    real = _flag()  # Float, base 10.
-    string = _flag()  # String of characters.
-    null = _flag()  # Null value.
-    fixed_value = (int | real | string | null)
-    identifier = _flag()  # Identifier for a variable or builtin
+    int = 0x1  # Integer, either base 2, 8, 10 or 16.
+    ieee_fpi = 0x2  # Float, base 10.
+    string = 0x4  # String of characters.
+    null = 0x8  # Null value.
+    fixed_value = int | ieee_fpi | string | null
+    identifier = 0x10  # Identifier for a variable or builtin
     value = fixed_value | identifier
     # Operators
-    operator = _flag()
-    reserve_word = _flag()
+    operator = 0x20
+    reserve_word = 0x40
     # Built in type
     builtin = operator | reserve_word | fixed_value
     # Other token
-    other = _flag()
+    other = 0x80
 
 
 T = typing.TypeVar('T')
@@ -71,13 +63,17 @@ class Token(abc.ABC):
     """Abstract type of token."""
     __slots__ = ('_name', '_value', '_token_type')
 
-    def __init__(self, name: str, value: T, token_type: Type):
+    def __init__(self, name: str, value: T, token_type: TokenType):
         # Prevent me doing anything to mutate these by accident later.
         # as we expect to rebuild them as nodes in an AST rather than
         # reuse the token type.
         self._name = name
         self._value = value
         self._token_type = token_type
+
+    def __hash__(self):
+        """Gets the hash code for the value."""
+        return hash(self.value)
 
     @property
     def name(self) -> str:
@@ -90,56 +86,65 @@ class Token(abc.ABC):
         return self._value
 
     @property
-    def token_type(self) -> Type:
+    def token_type(self) -> TokenType:
         """Token type flag."""
         return self._token_type
 
     def __str__(self):
-        return f'{self.name} token'
+        return f'{self.name} token with value `{self.value}`'
 
     def __repr__(self):
-        return (f'<Token name={self.name!r} value={self.value!r} '
+        return (f'<{type(self).__name__} '
+                f'name={self.name!r} '
+                f'value={self.value!r} '
                 f'type={self.token_type!r}>)')
 
     def __eq__(self, other):
-        """Equality is determined by value."""
+        """Equality is determined by matching name and value."""
         if not isinstance(other, Token):
-            return other.value == self.value
+            return False
+        else:
+            return all(
+                getattr(other, a) == getattr(self, a)
+                for a in ('name', 'value'))
+
+    def is_type(self, token_type: TokenType):
+        return bool(self.token_type & token_type)
 
 
 class UndefinedToken(Token):
     """Undefined token that is not understood."""
 
     def __init__(self, value: typing.Any):
-        super().__init__('Undefined', value, Type.undefined)
+        super().__init__('Undefined', value, TokenType.undefined)
 
 
-class DecimalToken(Token):
+class IntToken(Token):
     """Decimal token."""
 
     def __init__(self, value: int):
-        super().__init__('Integer', value, Type.int)
+        super().__init__('Integer', value, TokenType.int)
 
 
 class RealToken(Token):
     """Real token."""
 
     def __init__(self, value: float):
-        super().__init__('Real number', value, Type.real)
+        super().__init__('Real Number', value, TokenType.ieee_fpi)
 
 
 class StringToken(Token):
     """String token."""
 
     def __init__(self, value: str):
-        super().__init__('String', value, Type.string)
+        super().__init__('String', value, TokenType.string)
 
 
 class IdentifierToken(Token):
     """Some identifier for a function, variable, builtin, or other object."""
 
     def __init__(self, identifier_name: str):
-        super().__init__('Identifier', identifier_name, Type.identifier)
+        super().__init__('Identifier', identifier_name, TokenType.identifier)
 
 
 class OperatorToken(Token):
@@ -150,7 +155,7 @@ class OperatorToken(Token):
     operators = collections.OrderedDict()
 
     def __init__(self, name: str, symbol: str):
-        super().__init__(name, symbol, Type.operator)
+        super().__init__(name, symbol, TokenType.operator)
         type(self).operators[symbol] = self
 
 
@@ -161,9 +166,22 @@ class ReserveWordToken(Token):
     # objects.
     reserve_words = collections.OrderedDict()
 
-    def __init__(self, name: str):
-        super().__init__(name, name, Type.reserve_word)
-        type(self).reserve_words[name] = self
+    def __init__(self, identifier: str, **kwargs):
+        """
+        Defines a reserve word.
+        :param identifier: the identifier.
+        :param kwargs: see below.
+
+        Kwargs that are used are:
+        - ``value`` - specifies a custom value to associate with the
+            reserve word.
+        - ``additional_types`` - bitfield of any additional types to associate
+            the reserve word with.
+        """
+        value = kwargs.get('value', identifier)
+        _types = TokenType.reserve_word | kwargs.get('additional_types', 0)
+        super().__init__(identifier, value, _types)
+        type(self).reserve_words[identifier] = self
 
 
 class MiscToken(Token):
@@ -173,9 +191,8 @@ class MiscToken(Token):
     # objects.
     tokens = collections.OrderedDict()
 
-
     def __init__(self, name: str, value: typing.Optional[str]):
-        super().__init__(name, value, Type.other)
+        super().__init__(name, value, TokenType.other)
         type(self).tokens[name] = self
 
 
@@ -203,16 +220,6 @@ are resolved, e.g. in decreasing order by number of characters in the token
 literal, otherwise if `*` is placed before `**`, then `**` will always
 be interpreted as `*`, since `**` starts with `*`.
 """
-
-# This signifies end-of-statement.
-eos = MiscToken(
-    'End of statement',
-    'EOL')
-
-eof = MiscToken(
-    'End of file',
-    None)
-
 
 int_divide_ass = OperatorToken(
     'Integer divide/assign',
@@ -398,6 +405,17 @@ rbrace = OperatorToken(
     'Right brace',
     '}')
 
+
+true_rw = ReserveWordToken('true', value=1, additional_types=TokenType.int)
+false_rw = ReserveWordToken('false', value=0, additional_types=TokenType.int)
+null_rw = ReserveWordToken('null', value=None, additional_types=TokenType.null)
+nan_rw = ReserveWordToken('NaN', value=math.nan,
+                          additional_types=TokenType.ieee_fpi)
+inf_rw = ReserveWordToken('INF', value=math.inf,
+                          additional_types=TokenType.ieee_fpi)
+
+eos = MiscToken('End of statement', ';')
+eof = MiscToken('End of file', '\0')
 
 for_rw = ReserveWordToken('for')
 while_rw = ReserveWordToken('while')

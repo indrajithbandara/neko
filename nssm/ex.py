@@ -2,6 +2,7 @@
 Exceptions.
 """
 import abc
+import typing
 
 
 class NssmError(RuntimeError, abc.ABC):
@@ -33,12 +34,19 @@ class TokenError(NssmError, abc.ABC):
     :param token: the character we did not expect.
     :param line: the line of text we were parsing.
     """
-    def __init__(self, index: int, row: int, col: int, token: str, line: str):
+    def __init__(self,
+                 index: int,
+                 row: int,
+                 col: int,
+                 token: str,
+                 line: str,
+                 message: typing.Optional[str]=''):
         self.index = index
         self.row = row
         self.col = col
         self.token = token
         self.line = line
+        self.message = message
 
     def __repr__(self):
         """Simple machine readable representation."""
@@ -47,7 +55,8 @@ class TokenError(NssmError, abc.ABC):
                 f'row={self.row!r} '
                 f'col={self.col!r} '
                 f'token={self.token!r} '
-                f'line={self.line!r}')
+                f'line={self.line!r} '
+                f'message={self.message!r}')
 
     def __str__(self):
         """
@@ -66,6 +75,8 @@ class TokenError(NssmError, abc.ABC):
         output += (' ' * (self.col - 1))
         output += '^\n'
         output += f'Token error in input {self.row}:{self.col}.'
+        if self.message:
+            output += f'\n{self.message}'
         return output
 
 
@@ -78,5 +89,12 @@ class InvalidTokenError(TokenError):
     """
     Raised if we have an invalid token. This occurs if a syntax error
     occurs once we have begun parsing the token.
+    """
+    pass
+
+
+class UnclosedStringError(TokenError):
+    """
+    Raised if a string is invalid from not being closed.
     """
     pass
