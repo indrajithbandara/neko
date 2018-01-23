@@ -15,15 +15,16 @@ __all__ = ('Lexer',)
 
 # https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences
 _fixed_esc_c = {
-    'a': '\a',
-    'b': '\b',
-    'f': '\f',
-    'n': '\n',
-    'r': '\r',
-    'v': '\v',
-    '\'': '\'',
-    '\\': '\\',
-    '"': '"'
+    'a': '\a',   # Bell/alarm/blink
+    'b': '\b',   # Backspace
+    'f': '\f',   # Form feed
+    'n': '\n',   # New line
+    'r': '\r',   # Carriage return
+    't': '\t',   # Horizontal tab
+    'v': '\v',   # Vertical tab
+    '\'': '\'',  # Single quotes
+    '\\': '\\',  # Backslash
+    '"': '"'     # Double quote
 }
 
 
