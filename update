@@ -13,7 +13,7 @@ function exit_zero() {
     echo "Command exited with non-zero code ${?}." && exit 0
 }
 echo "Checking for existing changes."
-git stash --show || echo "WARNING. YOU ALREADY HAVE STASHED CHANGES."
+git stash show && echo "WARNING. YOU ALREADY HAVE STASHED CHANGES."
 git stash || exit_zero
 
 git pull --all || exit_zero
