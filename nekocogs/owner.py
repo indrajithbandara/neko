@@ -382,8 +382,10 @@ class OwnerOnlyCog(neko.Cog):
         brief='Prints the most recent traceback.')
     async def get_tb(self, ctx):
         book = neko.PaginatedBook(title='Last traceback', ctx=ctx)
-        if sys.exc_info()[0]:
-            book.add_lines(traceback.format_exc())
+        if neko.NekoCommand.last_error[0]:
+            book.add_lines(
+                traceback.format_exception(
+                    *neko.NekoCommand.last_error))
         else:
             book.add_lines('Nothing has broken \N{THINKING FACE}')
         await book.send()

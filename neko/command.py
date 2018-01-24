@@ -3,10 +3,12 @@ Utilities for commands. These inject various pieces of functionality into the
 existing discord.py stuff.
 """
 import abc
+import collections
 import traceback
 import typing
 
 import discord.ext.commands as commands
+
 
 from neko import book, strings
 from neko.other import excuses
@@ -14,8 +16,13 @@ from neko.other import excuses
 __all__ = ['NekoCommand', 'NekoGroup', 'command', 'group', 'NekoCommandError']
 
 
+LastError = collections.namedtuple('LastError', 'type, value, traceback')
+
+
 class CommandMixin(abc.ABC):
     """Functionality to be inherited by a command or group type."""
+
+    last_error = LastError(None, None, None)
 
     @property
     def qualified_aliases(self):
@@ -39,9 +46,11 @@ class CommandMixin(abc.ABC):
         fq_names.extend(self.qualified_aliases)
         return fq_names
 
-    @staticmethod
-    async def on_error(cog, ctx: commands.Context, error):
+    @classmethod
+    async def on_error(cls, cog, ctx: commands.Context, error):
         """Handles any errors that may occur in a command."""
+        cls.last_error = LastError(type(error), error, error.__traceback__)
+
         try:
             # For specific types of error, just react.
             await ctx.message.add_reaction({

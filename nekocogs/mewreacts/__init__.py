@@ -109,4 +109,3 @@ class MewReactsCog(neko.Cog):
 
                 # Reset the cool down.
                 ctx.command.reset_cooldown(ctx)
-
