@@ -292,7 +292,8 @@ class Book:
             def check(_react, _user):
                 return (_react.emoji in self.buttons.keys()
                         and _react.message.id == self._msg.id
-                        and _user.id == self._ctx.author.id)
+                        and _user.id in (
+                            self._ctx.author.id, self._ctx.bot.owner_id))
 
             react, member = await self._ctx.bot.wait_for(
                 'reaction_add',

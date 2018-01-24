@@ -13,7 +13,7 @@ import neko
 import neko.other.perms as perms
 
 # Relative to this directory.
-bindings_file = neko.relative_to_here('bindings.json')
+bindings_file = neko.relative_to_here('bindings.yaml')
 assets_directory = neko.relative_to_here('assets')
 
 
@@ -30,7 +30,7 @@ class MewReactsCog(neko.Cog):
     )
 
     def __init__(self):
-        bindings = neko.load_or_make_json(bindings_file)
+        bindings = neko.load_or_make_yaml(bindings_file)
 
         # Attempt to locate all files to ensure paths are valid.
         potential_targets = set()

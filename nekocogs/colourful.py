@@ -37,6 +37,33 @@ def _generate_preview(bytes_io: io.BytesIO,
     bytes_io.seek(0)
 
 
+def _to_hex(r: int, g: int, b: int, _a: int=None, *, prefix='#'):
+    """
+    Takes RGBA colour values from 0 to 255, and generates a hex
+    representation. Note the alpha channel is ignored, and is optional.
+    :param r: red channel
+    :param g: green channel
+    :param b: blue channel
+    :param prefix: what to prefix to the start. Defaults to '#'
+    :return: the string generated.
+    """
+    return prefix + ''.join(hex(x)[2:] for x in (r, g, b))
+
+
+def _from_hex(string: str) -> (int, int, int):
+    """
+    Takes a three or six digit hexadecimal RGB value and returns the value as
+    a tuple of red, green and blue byte-sized ints. Each can range between 0
+    and 255 inclusive.
+
+    If a 0x or a # is on the start of the string, we ignore it, so you do not
+    need to sanitise input for those.
+
+    :param string: the input
+    :return: tuple of red, green and blue.
+    """
+
+
 async def colour_response(ctx, r, g, b, a=255):
     """
     Takes a context, as well as RGB and optionally A in the range 0 ≤ x < 256,
@@ -74,8 +101,11 @@ class ColourfulCog(neko.Cog):
         aliases=['colour'],
         invoke_without_command=True,
         brief='Displays a given hex colour.')
-    async def color_group(self, ctx, hex_colour):
-        raise NotImplementedError
+    async def color_group(self, ctx, hex_colour=None):
+        """
+        Displays a preview of a given hex colour. If no colour is specified,
+        then a random 24-bit colour is generated.
+        """
 
     @color_group.command(
         brief='Generates a preview for the given red, green, blue and '

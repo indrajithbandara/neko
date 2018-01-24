@@ -5,3 +5,4 @@ beautifulsoup4
 pillow
 requests
 wordnik-py3
+pyyaml

@@ -1,0 +1,114 @@
+# Bindings for mewreacts to map commands to groups of images in the assets dir
+# to pick from at random.
+wait:
+    - 1mewait.png
+    - 2mewait2.png
+
+angry:
+    - 3mewangry.png
+
+I do appreciate you:
+    - 4mewappreciate.png
+
+"*blank face*":
+    - 5mewblank.png
+
+eww:
+    - 6mewew.png
+
+full:
+    - 7mewfull.png
+
+game:
+    - 8mewgame.png
+
+gg:
+    - 9mewgg.png
+
+goodnight:
+    - 10mewgn.png
+
+"<3":
+    - 11mewheart.png
+    - 12mewheart2.png
+    - 13mewheart3.png
+
+"❤":
+    - 11mewheart.png
+    - 12mewheart2.png
+    - 13mewheart3.png
+
+hi:
+    - 14mewhi.png
+
+frustrate:
+    - 15mewfrustrate.png
+
+hopeless:
+    - 16mewhopeless.png
+
+donut:
+    - 17mewmunch.png
+
+nervous:
+    - 18mewnervous.png
+
+'no':
+    - 19mewno.png
+
+not bad:
+    - 20mewnotbad.png
+
+owo:
+    - 21mewowo.png
+
+"*peers*":
+    - 22mewpeek.png
+    - 23mewpeer.png
+
+pervert:
+    - 24mewperv.png
+
+"*pets*":
+    - 25mewpet.png
+
+"*begs*":
+    - 26mewplease.png
+
+"*rage*":
+    - 27mewrage.png
+
+see ya:
+    - 28mewseeya.png
+
+"*sigh*":
+    - 29mewsigh.png
+
+"*sits*":
+    - 30mewsit.png
+
+sleepy:
+    - 31mewsleepy.png
+
+"*smiles*":
+    - 32mewsmile.png
+    - 33mewsmile2.png
+
+"*smirks*":
+    - 34mewsmirk.png
+
+"*sobs*":
+    - 35mewsob.png
+    - 36mewsob2.png
+
+surprise:
+    - 37mewsurprise.png
+
+"*waiting to talk*":
+    - 38mewtalk.png
+
+what did you say:
+    - 39mewut.png
+
+'yes':
+    - 40mewyes.png
