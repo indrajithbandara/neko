@@ -30,21 +30,50 @@ async def colour_response(ctx, r, g, b, a=255):
             color=discord.Color.from_rgb(r, g, b))
 
         hex_str = utils.to_hex(r, g, b, a).upper()
+        short_hex = utils.to_short_hex(r, g, b, a)
+
+        if short_hex:
+            short_hex = short_hex.upper()
+
         rf, gf, bf, af = utils.to_float(r, g, b, a)
+
+        hsl_h, hsl_s, hsl_l = utils.to_hsl(r, g, b)
+        hsl_h = f'{hsl_h:.0f}\N{DEGREE SIGN}'
+        hsl_s = f'{hsl_s:.0f}%'
+        hsl_l = f'{hsl_l:.0f}%'
+
+        cmyk_c, cmyk_m, cmyk_y, cmyk_k = utils.to_cmyk(r, g, b)
+        cmyk_c = round(cmyk_c, 2)
+        cmyk_m = round(cmyk_m, 2)
+        cmyk_y = round(cmyk_y, 2)
+        cmyk_k = round(cmyk_k, 2)
 
         title = utils.HtmlNames.from_value((r, g, b))
         if title:
             # Title case!
             title = title.title()
+
+            if not short_hex:
+                title += f' ({hex_str})'
+            else:
+                title += f' ({hex_str}, {short_hex})'
         else:
             title = hex_str
 
         embed.title = title
 
-        embed.description = (
-            f'{hex_str} at {pct_a:.0f}% opacity.\n'
-            f'RGBA{r, g, b, a}\tRGBAf{rf, gf, bf, af}\n'
-        )
+        if a < 255:
+            embed.description = f'{pct_a:.0f}% opacity'
+
+        embed.add_field(
+            name='RGB and RGBA',
+            value=f'RGBb\t{r, g, b}\nRGBAb {r, g, b, a}\n'
+                  f'RGBf \t{rf, gf, bf}\nRGBAf  {rf, gf, bf, af}')
+
+        embed.add_field(
+            name='Other systems',
+            value=f'CMYK   ({cmyk_c}, {cmyk_m}, {cmyk_y}, {cmyk_k})\n'
+                  f'HSL\t\t({hsl_h}, {hsl_s}, {hsl_l})')
 
         footer = (
             f'This is{" " if utils.is_web_safe(r,g,b,a) else " not "}web-safe.')
@@ -130,18 +159,18 @@ class ColourfulCog(neko.Cog):
         """
         try:
             if r.endswith('%'):
-                r = float(r[:-1]) / 100
+                r = utils.ensure_percentage(r)
 
             if g.endswith('%'):
-                g = float(g[:-1]) / 100
+                g = utils.ensure_percentage(g)
 
             if b.endswith('%'):
-                b = float(b[:-1]) / 100
+                b = utils.ensure_percentage(b)
 
             if a is None:
                 a = 1.0
             elif a.endswith('%'):
-                a = float(a[:-1]) / 100
+                a = utils.ensure_percentage(a)
 
             r, g, b, a = utils.from_float(r, g, b, a)
 
@@ -149,3 +178,38 @@ class ColourfulCog(neko.Cog):
         except (ValueError, TypeError) as ex:
             raise neko.NekoCommandError(str(ex))
 
+    @color_group.command(
+        name='cmyk',
+        brief='Generates a preview for the given CMYK colour channels. Each '
+              'value must be in the range [0, 1].',
+        usage='0.5 0.25 0 0.7')
+    async def cmyk_float(self, ctx, c, m, y, k):
+        """
+        Displays info on a colour given in the CMYK (Cyan-Magenta-Yellow-Key)
+        colour space.
+
+        "Key" may also be defined as "black".
+        """
+        try:
+            r, g, b = utils.from_cmyk(c, m, y, k)
+        except (ValueError, TypeError) as ex:
+            raise neko.NekoCommandError(str(ex))
+        else:
+            await colour_response(ctx, r, g, b)
+
+    @color_group.command(
+        brief='Generates a preview for the given HSL colour channels. Hue '
+              'must be an angle between 0 and 360°; Saturation and Lightness '
+              'should be percentages.',
+        usage='35 48 65|35° 48% 65%')
+    async def hsl(self, ctx, h, s, l):
+        """
+        Displays info on a colour in the HSL (hue, saturation, lightness
+        scale.
+        """
+        try:
+            r, g, b = utils.from_hsl(h, s, l)
+        except (ValueError, TypeError) as ex:
+            raise neko.NekoCommandError(str(ex))
+        else:
+            await colour_response(ctx, r, g, b)

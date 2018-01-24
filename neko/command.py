@@ -3,26 +3,20 @@ Utilities for commands. These inject various pieces of functionality into the
 existing discord.py stuff.
 """
 import abc
-import collections
 import traceback
 import typing
 
 import discord.ext.commands as commands
 
-
+import neko
 from neko import book, strings
 from neko.other import excuses
 
 __all__ = ['NekoCommand', 'NekoGroup', 'command', 'group', 'NekoCommandError']
 
 
-LastError = collections.namedtuple('LastError', 'type, value, traceback')
-
-
 class CommandMixin(abc.ABC):
     """Functionality to be inherited by a command or group type."""
-
-    last_error = LastError(None, None, None)
 
     @property
     def qualified_aliases(self):
@@ -49,7 +43,7 @@ class CommandMixin(abc.ABC):
     @classmethod
     async def on_error(cls, cog, ctx: commands.Context, error):
         """Handles any errors that may occur in a command."""
-        cls.last_error = LastError(type(error), error, error.__traceback__)
+        ctx.bot.last_error = (type(error), error, error.__traceback__)
 
         try:
             # For specific types of error, just react.
@@ -66,12 +60,16 @@ class CommandMixin(abc.ABC):
 
             if not isinstance(error, NotImplementedError):
                 if isinstance(error, Warning):
-                    title = str(error)
+                    title = f'\N{WARNING SIGN} {error}'
                 else:
-                    title = 'Whoops! Something went wrong!'
+                    title = '\N{SQUARED SOS} Oh crap...'
+
                 description = strings.capitalise(excuses.get_excuse())
             else:
-                title = 'Road under construction. Follow diversion.'
+                title = (
+                    '\N{NO PEDESTRIANS} '
+                    'Road under construction. Follow diversion.')
+
                 description = ('Seems this feature isn\'t finished! Hassle '
                                'Espy to get on it. ')
 
@@ -82,7 +80,7 @@ class CommandMixin(abc.ABC):
             )
 
             if isinstance(error, NekoCommandError):
-                embed.set_footer(text=str(error))
+                pass
             elif not isinstance(error, Warning):
                 # We only show info like the cog name, etc if we are not a
                 # neko command error. Likewise, we only dump a traceback if the
@@ -122,6 +120,7 @@ class NekoCommand(commands.Command, CommandMixin):
         defer to ``False.``
         """
         try:
+            # noinspection PyUnresolvedReferences
             return await super().can_run(ctx)
         except commands.CommandError:
             return False
@@ -150,6 +149,7 @@ class NekoGroup(commands.Group, CommandMixin, commands.GroupMixin):
         defer to ``False.``
         """
         try:
+            # noinspection PyUnresolvedReferences
             return await super().can_run(ctx)
         except commands.CommandError:
             return False

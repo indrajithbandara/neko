@@ -12,6 +12,8 @@ import os
 import signal
 import sys
 import traceback
+import types
+
 import aiohttp
 import asyncpg
 import discord
@@ -21,7 +23,7 @@ import neko.io as io
 import neko.other.log as log
 import neko.other.asyncpgconn as asyncpgconn
 
-__all__ = ['NekoBot', 'HttpRequestError']
+__all__ = ['NekoBot', 'HttpRequestError', 'PresenceCache', 'LastError']
 
 
 config_template = {
@@ -40,6 +42,19 @@ config_template = {
 
 # Holds our presence.
 PresenceCache = collections.namedtuple('PresenceCahce', 'status game afk')
+
+
+# Holds the last error that occurred.
+LastError = collections.namedtuple('LastError', 'type value traceback')
+
+
+class _LastErrorDated:
+    """
+    Generated from LastError when we set it to have a persistent timestamp.
+    """
+    def __init__(self, t_type, value, t_traceback):
+        self.type, self.value, self.traceback = t_type, value, t_traceback
+        self.date = datetime.datetime.now()
 
 
 class Tokens(log.Loggable):
@@ -126,6 +141,8 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         - ``invite_url`` - str - generates an invitation URL.
         - ``up_time`` - time.time - gets the bot's uptime, or None if the bot
                 has yet to start.
+        - ``last_error`` - LastError - the last error that occurred. This can
+                be set by anything in the bot, and is useful for diagnostics.
 
     **New Methods:**
         - ``async def do_job_in_pool(func, *args, **kwargs)`` - runs func
@@ -189,6 +206,7 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         self.__http_pool: aiohttp.ClientSession = None
 
         self.__extra_tokens = Tokens()
+        self.__last_error = _LastErrorDated(None, None, None)
 
         # Remove the injected help command.
         self.remove_command('help')
@@ -224,6 +242,16 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
             'https://discordapp.com/oauth2/authorize?scope=bot&'
             f'client_id={self.client_id}&permissions={self._required_perms}'
         )
+
+    @property
+    def last_error(self) -> _LastErrorDated:
+        """Includes timestamp."""
+        return self.__last_error
+
+    @last_error.setter
+    def last_error(self, value: (type, BaseException, types.TracebackType)):
+        """Injects timestamp."""
+        self.__last_error = _LastErrorDated(*value)
 
     @property
     def http_pool(self) -> aiohttp.ClientSession:
@@ -516,4 +544,11 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         for signum in signals:
             signal.signal(signum, terminate)
 
+    async def on_error(self, _event_method, *args, **kwargs):
+        """
+        On any kind of error, we should store the error in the exception
+        object so I can retrieve it later using a command.
+        """
+        self.last_error = LastError(*args, **kwargs)
+        super().on_error(_event_method, *args, **kwargs)
 

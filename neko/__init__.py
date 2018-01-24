@@ -10,7 +10,7 @@ Plus... NEKO!!! >'^w^<
 
 # Expects each file to have __all__ defined
 from .book import *
-from .client import NekoBot
+from .client import *
 from .cog import *
 from .command import *
 from .common import *
@@ -35,7 +35,8 @@ CooldownType = discord.ext.commands.BucketType
 
 
 __all__ = [
-    'NekoBot'
+    'NekoBot',
+    'LastError'
 ]
 
 

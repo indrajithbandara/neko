@@ -13,6 +13,9 @@ _pwidth = 25
 
 _rgb = typing.Tuple[int, int, int]
 _rgba = typing.Tuple[int, int, int, int]
+_cmyk = typing.Tuple[float, float, float, float]
+_hsl = typing.Tuple[float, float, float]
+_unsan_v = typing.Union[str, int, float]
 
 
 def generate_preview(bytes_io: io.BytesIO,
@@ -35,6 +38,63 @@ def generate_preview(bytes_io: io.BytesIO,
     bytes_io.seek(0)
 
 
+# The ensure_x methods will perform valid conversions, and may throw
+# ValueError and TypeError exceptions.
+
+def ensure_deg_360(val: _unsan_v) -> float:
+    # Ensures the value is an angle in degrees 0->360
+
+    # Remove any arbitrary units at the end.
+    for x in 'oO\'°':
+        val = val.replace(x, '')
+
+    try:
+        val = float(val)
+    except ValueError:
+        raise TypeError('Expected floating point angle (degrees).') from None
+    else:
+        if not 0 <= val <= 360:
+            raise ValueError('Expected angle to be between 0 and 360°')
+    return val
+
+
+def ensure_percentage(val: _unsan_v) -> float:
+    # Ensures the value is a valid percentage between 0 and 100, floating.
+    try:
+        val = float(val[:-1])
+    except ValueError:
+        raise TypeError('Expected percentage.') from None
+    else:
+        if not 0 <= val <= 100:
+            raise ValueError('Expected percentage between 0 and 100%.')
+
+    return val / 100
+
+
+def ensure_float_in_01(val: _unsan_v) -> float:
+    # Some useful validation for arbitrary colour spaces.
+    try:
+        val = float(val)
+    except ValueError:
+        raise TypeError('Expected float value between 0 and 1.') from None
+    else:
+        if not 0 <= val <= 1:
+            raise ValueError('Must be between 0 and 1.')
+    return val
+
+
+def ensure_int_in_0_255(val: _unsan_v) -> int:
+    # Validation!
+    try:
+        val = int(val)
+    except ValueError:
+        raise TypeError('Expected int value between 0 and 255.') from None
+    else:
+        if not 0 <= val <= 255:
+            raise ValueError('Must be between 0 and 255.')
+    return val
+
+
 def is_web_safe(r: int, g: int, b: int, a: int):
     """
     True if the rgba value is websafe.
@@ -49,15 +109,17 @@ def is_web_safe(r: int, g: int, b: int, a: int):
 
 def to_float(r: int, g: int, b: int, a: int = None):
     """Converts RGBA or RGB to float."""
-    if not all(0 <= x < 256 for x in (r, g, b, a if a is not None else 255)):
-        raise ValueError('Expected values in the range [0,256)')
+    had_a = a is not None
+    if not had_a:
+        a = 255
+    r, g, b, a = (ensure_int_in_0_255(x) for x in (r, g, b, a))
 
     r = round(r / 255., 2)
     g = round(g / 255., 2)
     b = round(b / 255., 2)
-    a = round(a / 255., 2) if a else None
+    a = round(a / 255., 2) if had_a else None
 
-    if a is None:
+    if not had_a:
         return (r, g, b)
     else:
         return (r, g, b, a)
@@ -66,23 +128,21 @@ def to_float(r: int, g: int, b: int, a: int = None):
 def from_float(r: float, g: float, b: float, a: float=None):
     """Parses from float to int values."""
     # Validates and parses the inputs to the correct type.
-    r, g, b = float(r), float(g), float(b)
-    if a is not None:
-        a = float(a)
+    had_a = a is not None
+    if not had_a:
+        a = 1.0
 
-    if not all(0 <= x <= 1 for x in (r, g, b, a if a is not None else 1)):
-        raise ValueError('Expected values in the range [0,1]')
+    r, g, b, a = (ensure_float_in_01(x) for x in (r, g, b, a))
 
+    r = int(r * 255)
+    g = int(g * 255)
+    b = int(b * 255)
+    a = int(a * 255) if had_a else None
+
+    if not had_a:
+        return (r, g, b)
     else:
-        r = int(r * 255)
-        g = int(g * 255)
-        b = int(b * 255)
-        a = int(a * 255) if a is not None else a
-
-        if a is not None:
-            return (r, g, b, a)
-        else:
-            return (r, g, b)
+        return (r, g, b, a)
 
 
 def to_hex(r: int, g: int, b: int, _a: int=None, *, prefix='#'):
@@ -96,17 +156,39 @@ def to_hex(r: int, g: int, b: int, _a: int=None, *, prefix='#'):
     :param prefix: what to prefix to the start. Defaults to '#'
     :return: the string generated.
     """
-    r = hex(r)[2:]
+    r = hex(r)[2:4]
+    g = hex(g)[2:4]
+    b = hex(b)[2:4]
+
     if len(r) == 1:
         r = f'0{r}'
-    g = hex(g)[2:]
     if len(g) == 1:
         g = f'0{g}'
-    b = hex(b)[2:]
     if len(b) == 1:
         b = f'0{b}'
 
-    return prefix + ''.join((r, g, b))
+    return ''.join((prefix, r, g, b))
+
+
+def to_short_hex(r: int, g: int, b: int, _a: int = None, *, prefix='#'):
+    """
+    Attempts to return a 3-digit hex code. If it can not, it returns None.
+    """
+    r = hex(r)[2:4]
+    g = hex(g)[2:4]
+    b = hex(b)[2:4]
+
+    if len(r) == 1:
+        r = f'0{r}'
+    if len(g) == 1:
+        g = f'0{g}'
+    if len(b) == 1:
+        b = f'0{b}'
+
+    if not all(chan[0] == chan[1] for chan in (r, g, b)):
+        return None
+    else:
+        return ''.join((prefix, r[0], g[0], b[0]))
 
 
 def from_hex(cc: str) -> _rgb:
@@ -133,6 +215,101 @@ def from_hex(cc: str) -> _rgb:
 
     # noinspection PyTypeChecker
     return tuple(int(d, 16) for d in (cc[0:2], cc[2:4], cc[4:6]))
+
+
+def to_cmyk(r: int, g: int, b: int) -> _cmyk:
+    """
+    Takes RGB values 0->255 and returns their values
+    in the CMYK namespace.
+
+    https://www.rapidtables.com/convert/color/rgb-to-cmyk.html
+    """
+    r, g, b = to_float(r, g, b)
+
+    k = 1 - max(r, g, b)
+    c = (1 - r - k) / (1 - k)
+    m = (1 - g - k) / (1 - k)
+    y = (1 - b - k) / (1 - k)
+
+    return (c, m, y, k)
+
+
+def from_cmyk(c: float, m: float, y: float, k: float) -> _rgb:
+    """
+    Converts CMYK values 0->1 and returns the equivalent RGB values
+    0->255
+
+    https://www.rapidtables.com/convert/color/cmyk-to-rgb.html
+    """
+    c, m, y, k = (ensure_float_in_01(x) for x in (c, m, y, k))
+
+    r = int(255 * (1 - c) * (1 - k))
+    g = int(255 * (1 - m) * (1 - k))
+    b = int(255 * (1 - y) * (1 - k))
+
+    return (r, g, b)
+
+
+def to_hsl(r: int, g: int, b: int) -> _hsl:
+    """
+    Converts r, g, b to HSL.
+
+    https://www.rapidtables.com/convert/color/rgb-to-hsl.html
+    """
+    r, g, b = to_float(r, g, b)
+    c_max = max(r, g, b)
+    c_min = min(r, g, b)
+    delta = c_max - c_min
+
+    light = (c_max + c_min) / 2
+
+    if delta == 0:
+        h = 0
+    elif c_max == r:
+        h = 60 * (((g - b) / delta) % 6)
+    elif c_max == g:
+        h = 60 * (((b - r) / delta) + 2)
+    else:
+        assert c_max == b, 'Your code is screwed up, laddie.'
+        h = 60 * (((r - g) / delta) + 4)
+
+    if delta == 0:
+        s = 0
+    else:
+        s = delta / (1 - abs(2 * light - 1))
+
+    return (h, s, light)
+
+
+def from_hsl(h: float, s: float, light: float) -> _rgb:
+    """
+    Converts hsl to rgb.
+    """
+    h = ensure_deg_360(h)
+    s, light = ensure_percentage(s), ensure_percentage(light)
+
+    c = (1 - abs(2 * light - 1)) * s
+    x = c * (1 - (abs((h / 60) % 2 - 1)))
+    m = light - c / 2
+    if 0 <= h < 60:
+        r, g, b = (c, x, 0)
+    elif 60 <= h < 120:
+        r, g, b = (x, c, 0)
+    elif 120 <= h < 180:
+        r, g, b = (0, c, x)
+    elif 180 <= h < 240:
+        r, g, b = (0, x, c)
+    elif 240 <= h < 300:
+        r, g, b = (x, 0, c)
+    else:
+        assert 300 <= h < 360, 'English, MoFo! Do you speak it?'
+        r, g, b = (c, 0, x)
+
+    r = int((r + m) * 255)
+    g = int((g + m) * 255)
+    b = int((b + m) * 255)
+
+    return (r, g, b)
 
 
 @singleton.singleton

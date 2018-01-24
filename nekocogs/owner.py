@@ -7,12 +7,14 @@ import getpass
 import inspect
 import logging
 import os
+import random
 import subprocess
 import sys
 import time
 import traceback
 
 import neko
+import neko.other.excuses as excuses
 import neko.other.perms as perms
 
 
@@ -377,18 +379,33 @@ class OwnerOnlyCog(neko.Cog):
         book.add_lines(result)
         await book.send()
 
-    @command_grp.command(
-        name='tb',
-        brief='Prints the most recent traceback.')
-    async def get_tb(self, ctx):
-        book = neko.PaginatedBook(title='Last traceback', ctx=ctx)
-        if neko.NekoCommand.last_error[0]:
+    @staticmethod
+    async def __get_tb(ctx):
+        book = neko.PaginatedBook(
+            title=f'Last traceback ({ctx.bot.last_error.date})', ctx=ctx,
+            prefix='```python', suffix='```')
+        if ctx.bot.last_error.value:
             book.add_lines(
                 traceback.format_exception(
-                    *neko.NekoCommand.last_error))
+                    ctx.bot.last_error.type,
+                    ctx.bot.last_error.value,
+                    ctx.bot.last_error.traceback))
         else:
             book.add_lines('Nothing has broken \N{THINKING FACE}')
         await book.send()
+
+    @neko.command(
+        name='tb',
+        brief='Prints the most recent traceback.')
+    async def get_tb(self, ctx):
+        await self.__get_tb(ctx)
+
+    # Deprecated.
+    @command_grp.command(
+        name='tb',
+        brief='Prints the most recent traceback.')
+    async def get_tb_sudo(self, ctx):
+        await self.__get_tb(ctx)
 
     # noinspection PyProtectedMember
     @command_grp.command(
@@ -404,3 +421,35 @@ class OwnerOnlyCog(neko.Cog):
             await ctx.send('Cooldown reset.', delete_after=10)
         else:
             await ctx.send('Couldn\'t find that command.')
+
+    @command_grp.command(brief='Raises a fake chain of exceptions.')
+    async def test_raise(self, ctx, number=None):
+        """Optional first parameter = number of errors/warnings to chain."""
+        number = int(number) if number else 5
+
+        # Collection of stuff to potentially raise.
+        exceptions = (
+            neko.NekoCommandError, Exception, RuntimeError, RuntimeWarning,
+            InterruptedError, IndentationError, KeyboardInterrupt,
+            BrokenPipeError, IOError, BlockingIOError, NotImplementedError,
+            KeyError, PendingDeprecationWarning, DeprecationWarning,
+            ValueError, NameError, TypeError, UserWarning,
+            BytesWarning, GeneratorExit, BufferError, StopIteration,
+            StopAsyncIteration, FutureWarning, ImportError, ImportWarning
+        )
+
+        def raiser(depth: int):
+            try:
+                if depth <= 0:
+                    raise random.choice(exceptions)(excuses.get_excuse())
+                else:
+                    raiser(depth - 1)
+            except BaseException:
+                raise random.choice(exceptions)(excuses.get_excuse())
+
+        await ctx.send('Now breaking myself \N{CRYING FACE}')
+
+        try:
+            raiser(number)
+        except BaseException:
+            raise neko.NekoCommandError('Success! I broke.')
