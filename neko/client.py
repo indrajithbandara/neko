@@ -334,8 +334,7 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
             try:
                 self.unload_extension(p)
             except BaseException:
-                traceback.print_exc()
-                self.logger.warning('Continuing anyway (not got much choice!)')
+                pass
 
         await self.__deinit_postgres_pool()
         await self.__deinit_postgres_pool()
