@@ -129,7 +129,17 @@ class ColourfulCog(neko.Cog):
         You can also only pass in one colour at once to this command. See the
         `palette` sub-command for a potential solution.
         """
-        pass
+        if all(arg.isalpha() for arg in args):
+            await self.by_name.callback(self, ctx, colour_name=' '.join(args))
+
+        elif len(args) in (3, 4):
+            joint = ''.join(args)
+            if any(x in joint for x in '.%'):
+                await self.rgba_float.callback(self, ctx, *args)
+            else:
+                await self.rgba_byte.callback(self, ctx, *args)
+        else:
+            await self.hex_colour.callback(self, ctx, args[0])
 
     @color_group.command(
         name='hex',
@@ -177,7 +187,7 @@ class ColourfulCog(neko.Cog):
         All values must be in the range 0 ≤ x < 256.
         """
         try:
-            r, g, b, a = int(r), int(g), int(b), int(a)
+            r, g, b, a = (utils.ensure_int_in_0_255(x) for x in (r, g, b, a))
             for x in (r, g, b, a):
                 if not 0 <= x < 256:
                     raise TypeError('Must be in range [0, 256)')
@@ -271,16 +281,33 @@ class ColourfulCog(neko.Cog):
         else:
             await single_colour_response(ctx, r, g, b)
 
+    @neko.cooldown(3, 180, neko.CooldownType.channel)
     @color_group.command(
         brief='Displays several hex-formatted RGB colours in a palette.',
-        usage='#581845 #900C3F #C70039 #FF5733 #FFC300|')
-    async def palette(self, ctx, *colours):
+        usage=' #9DD0A5 #D0BD9D #D0AB9D #9DCCD0 #C19DD0|"dodger blue" 0xff0ff0')
+    async def palette(self, ctx, *, colours):
         """
         This is experimental, and slow. Thus, there is a cooldown restriction
         on this command to prevent slowing the bot down for everyone else.
 
-        This only supports RGB-hex strings currently; alpha channels, float
-        channels, CMYK, HSL and HSV are not supported. To use another system,
-        use one of the other commands to convert them first.
+        This only supports RGB-hex strings currently, as well as RGB-bytes,
+        and HTML colour names. Anything that contains spaces must be surrounded
+        by quotes.
         """
-        raise NotImplementedError
+        try:
+            with ctx.typing(), io.BytesIO() as fp:
+                # Parse args
+                print(colours)
+                colours = neko.parse_quotes(colours)
+
+                await ctx.bot.do_job_in_pool(
+                    utils.make_palette,
+                    fp,
+                    *colours)
+
+                file = discord.File(fp, 'palette.png')
+
+                await ctx.send(file=file)
+        except (ValueError, TypeError, KeyError) as ex:
+            string = f'No match: {ex}'
+            raise neko.NekoCommandError(string)

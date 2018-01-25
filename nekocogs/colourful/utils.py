@@ -2,13 +2,26 @@ import collections
 import io
 import typing
 
+import math
+
 import neko
 import neko.other.singleton as singleton
 
 import PIL.Image as pil_image
+import PIL.ImageDraw as pil_pen
+import PIL.ImageFont as pil_font
 
 _pheight = 25
 _pwidth = 25
+
+
+# Palette options.
+_pal_colours_per_row = 5
+_pal_width_per_colour = 200
+_pal_height_per_colour = 100
+_pal_backing_colour = (0, 0, 0, 0)
+# Relative text location in the palette.
+_pal_rel_text_location = (10, 10)
 
 
 _rgb = typing.Tuple[int, int, int]
@@ -17,6 +30,21 @@ _cmyk = typing.Tuple[float, float, float, float]
 _hsl = typing.Tuple[float, float, float]
 _hsv = typing.Tuple[float, float, float]
 _unsan_v = typing.Union[str, int, float]
+
+
+font = None
+
+for poss_font in ('arial.ttf', 'Lato-Bold.ttf', 'DejaVuSerif.ttf'):
+    try:
+        font = pil_font.truetype(poss_font, 25)
+    except OSError:
+        continue
+    else:
+        break
+
+if font is None:
+    # Default font if we can't find any other fonts.
+    font = pil_font.load_default()
 
 
 def generate_preview(bytes_io: io.BytesIO,
@@ -37,6 +65,11 @@ def generate_preview(bytes_io: io.BytesIO,
     bytes_io.seek(0)
     img.save(bytes_io, 'PNG')
     bytes_io.seek(0)
+
+
+def invert(r: int, g: int, b: int) -> _rgb:
+    """Inverts the given colour."""
+    return (0xFF - r, 0xFF - g, 0xFF - b)
 
 
 # The ensure_x methods will perform valid conversions, and may throw
@@ -431,3 +464,68 @@ class HtmlNames(collections.Mapping):
 
 # Suppresses incorrect inspections.
 HtmlNames: HtmlNames = HtmlNames
+
+
+def make_palette(bytes_io, *strings):
+    """
+    Generates a palette of the given hex string colours
+    """
+    if len(strings) == 0:
+        raise ValueError('No input...')
+
+    # Dict mapping hex to rgb tuples.
+    colours = []
+
+    for colour in strings:
+        colour = colour.upper()
+        # Don't display more than 12 chars
+        display = neko.ellipses(colour, 12)
+        if all(c.isspace() or c.isalpha() for c in colour):
+            # Colour name.
+            colours.append((display, HtmlNames[colour]))
+        elif colour.count(' ') == 0:
+            colours.append((display, from_hex(colour)))
+        else:
+            chans = colour.split(' ')
+            if len(chans) != 3:
+                raise ValueError('Expected colour name, hex or RGB/RGBA bytes.')
+            else:
+                r, g, b = (ensure_int_in_0_255(chan) for chan in chans)
+                colours.append((display, (r, g, b)))
+
+    rows = math.ceil(len(colours) / _pal_colours_per_row)
+    cols = min(_pal_colours_per_row, len(colours))
+
+    im_width = cols * _pal_width_per_colour
+    im_height = (rows - 1) * _pal_height_per_colour + _pal_height_per_colour
+
+    print(im_height, im_height, rows, cols)
+
+    image = pil_image.new(
+        'RGBA',
+        (im_width, im_height),
+        _pal_backing_colour)
+
+    pen = pil_pen.Draw(image)
+
+    for i, (name, (r, g, b)) in enumerate(colours):
+        col = i % cols
+        row = int(i / cols)
+
+        # Get the start coordinates
+        xs, ys = col * _pal_width_per_colour, row * _pal_height_per_colour
+
+        pen.rectangle(
+            (xs, ys, xs + _pal_width_per_colour, ys + _pal_height_per_colour),
+            (r, g, b, 255))
+
+        text_xs, text_ys = _pal_rel_text_location
+        text_xs += xs
+        text_ys += ys
+
+        # Adds text in two colours.
+        inverted = invert(r, g, b)
+        pen.text((text_xs, text_ys), name, fill=inverted, font=font)
+
+    image.save(bytes_io, 'PNG')
+    bytes_io.seek(0)

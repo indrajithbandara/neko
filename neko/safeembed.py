@@ -70,9 +70,17 @@ class SafeEmbed(embeds.Embed):
     def __getattribute__(self, item):
         # Unless we do this in this way
         if item == 'title':
-            return neko.ellipses(super().title, _max_title)
+            title = super().title
+            if title != EmptyEmbed:
+                return neko.ellipses(title, _max_title)
+            else:
+                return title
         elif item == 'description':
-            return neko.ellipses(super().description, _max_desc)
+            desc = super().description
+            if desc != EmptyEmbed:
+                return neko.ellipses(desc, _max_desc)
+            else:
+                return desc
         else:
             return getattr(super(), item)
 
