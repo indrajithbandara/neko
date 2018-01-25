@@ -102,6 +102,11 @@ async def single_colour_response(ctx, r, g, b, a=255):
 
         embed = make_colour_embed(r, g, b, a)
 
+        # Get hex colour string
+        hex_str = utils.to_hex(r, g, b, a, prefix='')
+
+        embed.url = f'http://www.color-hex.com/color/{hex_str}'
+
         await ctx.send(
             file=file,
             embed=embed)
@@ -297,7 +302,6 @@ class ColourfulCog(neko.Cog):
         try:
             with ctx.typing(), io.BytesIO() as fp:
                 # Parse args
-                print(colours)
                 colours = neko.parse_quotes(colours)
 
                 await ctx.bot.do_job_in_pool(
@@ -311,3 +315,9 @@ class ColourfulCog(neko.Cog):
         except (ValueError, TypeError, KeyError) as ex:
             string = f'No match: {ex}'
             raise neko.NekoCommandError(string)
+
+    @color_group.command(brief='Generates a totally random RGB colour.')
+    async def random(self, ctx):
+        hex_str = hex(neko.random_color())
+        r, g, b = utils.from_hex(hex_str)
+        await single_colour_response(ctx, r, g, b)

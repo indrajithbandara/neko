@@ -231,23 +231,6 @@ def ellipses(text: str, max_length: int):
         return text
 
 
-async def get_text_from_html(html):
-    """Uses beautifulsoup4 to parse the given HTML asynchronously."""
-    try:
-        import bs4
-    except ImportError:
-        raise RuntimeError('Install the beautifulsoup4 package.') from None
-
-    def executor_call():
-        soup = bs4.BeautifulSoup(html, "html5lib")
-        return soup.get_text()
-
-    return await asyncio.get_event_loop().run_in_executor(
-        None,
-        executor_call
-    )
-
-
 def parse_quotes(string, quotes=None, delimit_on=None):
     """
     Delimits the given string using a quotation mark parser.

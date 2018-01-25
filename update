@@ -11,6 +11,7 @@ stat $(basename ${0})
 function exit_zero() {
     echo "Command exited with non-zero code ${?}." && exit 0
 }
+
 echo "Checking for existing changes."
 git stash show && echo "WARNING. YOU ALREADY HAVE STASHED CHANGES."
 git stash || exit_zero
@@ -20,9 +21,12 @@ git pull --all || exit_zero
 echo "Unstashing the most recent stash."
 git stash pop
 
-echo "Changes made:"
-git diff --stat HEAD HEAD~1 || exit_zero
-git log --oneline -n 10 || exit_zero
+echo
+echo
+echo "Most recent commits were"
+git log --oneline -n 3 || exit_zero
 
+echo
+echo
 echo "Grand total LOC"
 wc -l $(find n* -name '*.py' -o -name '*.sql' -o -name '*.json' -o -name '*.md')
