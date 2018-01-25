@@ -41,7 +41,7 @@ class CppReferenceCog(neko.Cog):
             Extracts results using BS4. This must be run in an executor of some
             sort.
             """
-            bs = bs4.BeautifulSoup(html, 'html5lib')
+            bs = bs4.BeautifulSoup(html)
 
             # Find matching tags.
             tags: typing.List[bs4.Tag] = bs.find_all(
@@ -80,7 +80,7 @@ class CppReferenceCog(neko.Cog):
             """
             Extracts flavour info from given HTML.
             """
-            bs = bs4.BeautifulSoup(html, 'html5lib')
+            bs = bs4.BeautifulSoup(html)
 
             taster_code = bs.find(
                 name='span',
