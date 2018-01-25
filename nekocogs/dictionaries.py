@@ -127,7 +127,7 @@ class DictionaryCog(neko.Cog):
                 page = neko.Page(
 
                     title=neko.capitalize(word.word),
-                    description=neko.ellipses(text, 2000),
+                    description=text,
                     color=neko.random_colour()
                 )
 
@@ -149,7 +149,7 @@ class DictionaryCog(neko.Cog):
 
                     page.add_field(
                         name='Synonyms',
-                        value=neko.ellipses(related, 1000)
+                        value=related
                     )
 
                 if word.textProns:
@@ -228,14 +228,14 @@ class DictionaryCog(neko.Cog):
         for definition in results:
             page = neko.Page(
                 title=definition['word'].title(),
-                description=neko.ellipses(definition['definition'], 2000),
+                description=definition['definition'],
                 color=0xFFFF00,
                 url=user
             )
 
             page.add_field(
                 name='Example of usage',
-                value=neko.ellipses(definition['example'], 1024),
+                value=definition['example'],
                 inline=False
             )
 

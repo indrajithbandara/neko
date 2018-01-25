@@ -200,7 +200,7 @@ class DiscordServiceStatusNut(neko.Cog):
             if incidents['unresolved']:
                 first = incidents['unresolved'][0]
                 name = first['Name']
-                body = neko.ellipses(make_incident_body(first), 1024)
+                body = make_incident_body(first)
 
                 page.add_field(name=name, value=body, inline=False)
 
@@ -296,7 +296,7 @@ class DiscordServiceStatusNut(neko.Cog):
                 incident = incidents['unresolved'][0]
 
                 name = f'**{incident["Name"]}**'
-                desc = neko.ellipses(make_incident_body(incident), 1800)
+                desc = make_incident_body(incident)
 
                 page.description = name + '\n\n' + desc.strip()
 
@@ -308,7 +308,7 @@ class DiscordServiceStatusNut(neko.Cog):
 
                 page.add_field(
                     name='\u200b',
-                    value=neko.ellipses(body, 1024).strip()
+                    value=body.strip()
                 )
 
             book += page
@@ -328,7 +328,7 @@ class DiscordServiceStatusNut(neko.Cog):
                 incident = incidents['resolved'][0]
 
                 name = f'**{incident["Name"]}**'
-                desc = neko.ellipses(make_incident_body(incident), 1800)
+                desc = make_incident_body(incident)
                 page.description = name + '\n\n' + desc.strip()
 
             # Add the next three most recent.
@@ -338,7 +338,7 @@ class DiscordServiceStatusNut(neko.Cog):
 
                 body = name + '\n\n' + body.strip()
 
-                page.add_field(name='\u200b', value=neko.ellipses(body, 1024))
+                page.add_field(name='\u200b', value=body)
 
             book += page
 
