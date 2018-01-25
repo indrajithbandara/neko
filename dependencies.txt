@@ -6,3 +6,4 @@ pillow
 requests
 wordnik-py3
 pyyaml
+html5lib

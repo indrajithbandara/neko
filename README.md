@@ -13,6 +13,8 @@ To install and set up any dependencies that do not need custom configuration, ru
 - [`asyncpg`](https://github.com/MagicStack/asyncpg) - Asyncio wrapper for PostgreSQL.\*
 - [`pillow`](https://pillow.readthedocs.io/en/5.0.0/) - Python Image Library (PIL) support.\*
 - [`wordnik-py3`](https://github.com/wordnik/wordnik-python3) - Wordnik Python3 API wrapper.\*
+- [`beautifulsoup4`](https://www.crummy.com/software/BeautifulSoup/) - BeautifulSoup HTML data pull-outer.\*
+- [`html5lib`](https://html5lib.readthedocs.io/en/latest/) - The chosen HTML5 parser for beautiful soup.\*
 
 <small>*\* These dependencies are available directly from PyPI using the `pip` command*</small>
 
