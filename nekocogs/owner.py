@@ -385,11 +385,12 @@ class OwnerOnlyCog(neko.Cog):
             title=f'Last traceback ({ctx.bot.last_error.date})', ctx=ctx,
             prefix='```python', suffix='```')
         if ctx.bot.last_error.value:
-            book.add_lines(
-                traceback.format_exception(
-                    ctx.bot.last_error.type,
-                    ctx.bot.last_error.value,
-                    ctx.bot.last_error.traceback))
+            book.add_line(
+                ''.join(
+                    traceback.format_exception(
+                        ctx.bot.last_error.type,
+                        ctx.bot.last_error.value,
+                        ctx.bot.last_error.traceback)))
         else:
             book.add_lines('Nothing has broken \N{THINKING FACE}')
         await book.send()
@@ -450,6 +451,6 @@ class OwnerOnlyCog(neko.Cog):
         await ctx.send('Now breaking myself \N{CRYING FACE}')
 
         try:
-            raiser(number)
+            raiser(number - 1)
         except BaseException:
             raise neko.NekoCommandError('Success! I broke.')
