@@ -549,6 +549,6 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         On any kind of error, we should store the error in the exception
         object so I can retrieve it later using a command.
         """
-        self.last_error = LastError(*args, **kwargs)
+        self.last_error = LastError(*sys.exc_info())
         super().on_error(_event_method, *args, **kwargs)
 

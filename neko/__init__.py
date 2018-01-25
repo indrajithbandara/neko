@@ -15,8 +15,8 @@ from .cog import *
 from .command import *
 from .common import *
 from .io import *
+from .safeembed import *
 from .strings import *
-from .other.log import with_verbosity
 from .deque import *
 
 

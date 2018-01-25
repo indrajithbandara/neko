@@ -14,9 +14,13 @@ import discord
 import discord.ext.commands as commands
 
 from neko import common
+from neko import safeembed
 
-# Simple, really.
-Page = discord.Embed
+
+class Page(safeembed.SafeEmbed):
+    """For now, this does not alter any functionality."""
+    pass
+
 
 DEV = False
 
