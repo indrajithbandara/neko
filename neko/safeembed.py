@@ -102,7 +102,7 @@ class SafeEmbed(embeds.Embed):
 
     def __str__(self):
         return (f'SafeEmbed with title {self.title} '
-                f'and {neko.pluralise(len(self.fields)), "field")}.')
+                f'and {neko.pluralise(len(self.fields), "field")}.')
 
     def __repr__(self):
         strings = []

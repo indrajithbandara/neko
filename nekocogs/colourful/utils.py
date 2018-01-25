@@ -15,6 +15,7 @@ _rgb = typing.Tuple[int, int, int]
 _rgba = typing.Tuple[int, int, int, int]
 _cmyk = typing.Tuple[float, float, float, float]
 _hsl = typing.Tuple[float, float, float]
+_hsv = typing.Tuple[float, float, float]
 _unsan_v = typing.Union[str, int, float]
 
 
@@ -61,7 +62,9 @@ def ensure_deg_360(val: _unsan_v) -> float:
 def ensure_percentage(val: _unsan_v) -> float:
     # Ensures the value is a valid percentage between 0 and 100, floating.
     try:
-        val = float(val[:-1])
+        if val.endswith('%'):
+            val = val[:-1]
+        val = float(val)
     except ValueError:
         raise TypeError('Expected percentage.') from None
     else:
@@ -264,7 +267,7 @@ def to_hsl(r: int, g: int, b: int) -> _hsl:
     light = (c_max + c_min) / 2
 
     if delta == 0:
-        h = 0
+        h = 0.
     elif c_max == r:
         h = 60 * (((g - b) / delta) % 6)
     elif c_max == g:
@@ -277,6 +280,9 @@ def to_hsl(r: int, g: int, b: int) -> _hsl:
         s = 0
     else:
         s = delta / (1 - abs(2 * light - 1))
+
+    s *= 100
+    light *= 100
 
     return (h, s, light)
 
@@ -303,6 +309,69 @@ def from_hsl(h: float, s: float, light: float) -> _rgb:
         r, g, b = (x, 0, c)
     else:
         assert 300 <= h < 360, 'English, MoFo! Do you speak it?'
+        r, g, b = (c, 0, x)
+
+    r = int((r + m) * 255)
+    g = int((g + m) * 255)
+    b = int((b + m) * 255)
+
+    return (r, g, b)
+
+
+def to_hsv(r: int, g: int, b: int) -> _hsv:
+    """
+    Converts RGB to HSV.
+    """
+    r, g, b = to_float(r, g, b)
+
+    c_max = max(r, g, b)
+    c_min = min(r, g, b)
+
+    delta = c_max - c_min
+
+    if delta == 0:
+        h = 0.
+    elif c_max == r:
+        h = 60 * (((g - b) / delta) % 6)
+    elif c_max == g:
+        h = 60 * (((b - r) / delta) + 2)
+    else:
+        assert c_max == b, 'You done broke it.'
+        h = 60 * (((r - g) / delta) + 4)
+
+    s = 0 if c_max == 0 else delta / c_max
+
+    v = c_max
+
+    s *= 100
+    v *= 100
+
+    return (h, s, v)
+
+
+def from_hsv(h: float, s: float, v: float) -> _rgb:
+    """
+    Converts HSV to RGB.
+    """
+    h = ensure_deg_360(h)
+    s, v = ensure_percentage(s), ensure_percentage(v)
+
+    c = v * s
+    x = c * (1 - abs(((h / 60) % 2) - 1))
+    m = v - c
+
+    if 0 <= h < 60:
+        r, g, b = (c, x, 0)
+    elif 60 <= h < 120:
+        r, g, b = (x, c, 0)
+    elif 120 <= h < 180:
+        r, g, b = (0, c, x)
+    elif 180 <= h < 240:
+        r, g, b = (0, x, c)
+    elif 240 <= h < 300:
+        r, g, b = (x, 0, c)
+    else:
+        assert 300 <= h < 360, 'Enough is enough.'
         r, g, b = (c, 0, x)
 
     r = int((r + m) * 255)
