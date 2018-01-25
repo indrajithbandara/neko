@@ -331,7 +331,11 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         ps = [p for p in self.extensions.keys()]
         for p in ps:
             self.logger.info(f'Unloading extension {p}.')
-            self.unload_extension(p)
+            try:
+                self.unload_extension(p)
+            except BaseException:
+                traceback.print_exc()
+                self.logger.warning('Continuing anyway (not got much choice!)')
 
         await self.__deinit_postgres_pool()
         await self.__deinit_postgres_pool()
