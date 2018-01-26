@@ -18,6 +18,7 @@ import aiohttp
 import asyncpg
 import discord
 import discord.ext.commands as commands
+import neko
 import neko.common as common
 import neko.io as io
 import neko.other.log as log
@@ -184,16 +185,22 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
 
     def __init__(self):
         """Initialises the bot environment."""
+        print(
+            neko.__title__,
+            neko.__version__,
+            neko.__author__,
+            file=sys.stderr)
+
         config = io.load_or_make_json('config.json', default=config_template)
+
+        # Logger verbosity
+        verbosity = config.get('verbosity', 'INFO')
+        logging.basicConfig(level=verbosity)
 
         self.__token = common.get_or_die(config, 'token')
         self.client_id = common.get_or_die(config, 'client_id')
         owner_id = common.get_or_die(config, 'owner_id')
         command_prefix = common.get_or_die(config, 'command_prefix')
-
-        # Logger verbosity
-        verbosity = config.get('verbosity', 'INFO')
-        logging.basicConfig(level=verbosity)
 
         super().__init__(
             command_prefix=command_prefix,
@@ -344,7 +351,14 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
         self.logger.info(f'Loaded cog {type(cog).__name__}')
         self._required_perms |= getattr(cog, 'permissions', 0)
 
-        super().add_cog(cog)
+        try:
+            super().add_cog(cog)
+        except BaseException as ex:
+            # If we have an error, attempt to unload the cog again.
+            try:
+                super().remove_cog(cog)
+            finally:
+                raise ImportError(ex)
 
     def remove_cog(self, name):
         """Removes a cog."""

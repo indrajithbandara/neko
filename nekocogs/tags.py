@@ -56,8 +56,11 @@ class TagCog(neko.Cog):
     def __init__(self, bot: neko.NekoBot):
         if bot.postgres_pool is None:
             raise RuntimeError('Dropping this cog. No database available.')
-
         self.bot = bot
+
+        # Only do this if we have managed to detect an initialised postgresql
+        # pool
+        bot.listen('on_connect')(self.maybe_on_connect)
 
     async def __local_check(self, ctx):
         """
@@ -68,7 +71,7 @@ class TagCog(neko.Cog):
 
         return is_bot or is_guild
 
-    async def on_connect(self):
+    async def maybe_on_connect(self):
         """
         Ensures the tables actually exist.
         """
