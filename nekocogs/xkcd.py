@@ -81,10 +81,10 @@ class XkcdCog(neko.Cog):
               'will try to retrieve that comic number instead.',
         usage='|327')
     async def xkcd(self, ctx, number=None):
-        if number == -1:
+        if number == '-1':
             await ctx.send('https://xkcd.com/chesscoaster/')
-        elif number == 0:
-            await ctx.sen('http://wiki.xkcd.com/geohashing/Main_Page')
+        elif number == '0':
+            await ctx.send('http://wiki.xkcd.com/geohashing/Main_Page')
         else:
             with ctx.typing():
                 comic = await self.get_comic(number)
