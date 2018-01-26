@@ -84,16 +84,16 @@ class Unit(enum.IntEnum):
 
     # Short distances
     meter = enum.auto()
-    yard = enum.auto()
+    # yard = enum.auto()
     inch = enum.auto()
     foot = enum.auto()
     centimeter = enum.auto()
-    millimeter = enum.auto()
+    # millimeter = enum.auto()
 
     # Long distances
     kilometer = enum.auto()
     mile = enum.auto()
-    nautical_mile = enum.auto()
+    # nautical_mile = enum.auto()
 
     # Time
     # second = enum.auto()
@@ -108,7 +108,7 @@ class Unit(enum.IntEnum):
     meters_per_second = enum.auto()
     kilometers_per_hour = enum.auto()
     miles_per_hour = enum.auto()
-    knots = enum.auto()
+    # knots = enum.auto()
 
     # Force
     newton = enum.auto()
@@ -157,14 +157,14 @@ si2dim = _reverse_map(dim2si)
 dim2unit = {
     Dim.distance: [
         Unit.meter,
-        Unit.yard,
+        # Unit.yard,
         Unit.inch,
         Unit.foot,
         Unit.mile,
         Unit.kilometer,
-        Unit.nautical_mile,
+        # Unit.nautical_mile,
         Unit.centimeter,
-        Unit.millimeter
+        # Unit.millimeter
     ],
     # Dim.time: [
     #     Unit.second,
@@ -179,7 +179,7 @@ dim2unit = {
         Unit.meters_per_second,
         Unit.kilometers_per_hour,
         Unit.miles_per_hour,
-        Unit.knots,
+        # Unit.knots,
     ],
     Dim.force: [
         Unit.newton,
@@ -235,14 +235,14 @@ def __k_chk(k):
 # Input = Si; Output = Unit.
 si2unit_conversion = {
     Unit.meter: __si_u,
-    Unit.yard: lambda v: v * 1.09361,
+    # Unit.yard: lambda v: v * 1.09361,
     Unit.inch: lambda v: v * 39.3701,
     Unit.foot: lambda v: v * 3.28084,
     Unit.kilometer: lambda v: v * 0.001,
     Unit.mile: lambda v: v * 0.000621371,
-    Unit.nautical_mile: lambda v: v * 0.000539957,
+    # Unit.nautical_mile: lambda v: v * 0.000539957,
     Unit.centimeter: lambda v: v * 100,
-    Unit.millimeter: lambda v: v * 1000,
+    # Unit.millimeter: lambda v: v * 1000,
 
     # Unit.second: __si_u,
     # Unit.minute: lambda v: v / 60,
@@ -255,7 +255,7 @@ si2unit_conversion = {
     Unit.meters_per_second: __si_u,
     Unit.kilometers_per_hour: lambda v: v * 3.6,
     Unit.miles_per_hour: lambda v: v * 2.23694,
-    Unit.knots: lambda v: v * 1.94384,
+    # Unit.knots: lambda v: v * 1.94384,
 
     Unit.newton: __si_u,
     Unit.pound_force: lambda v: v * 0.224809,
@@ -286,14 +286,14 @@ si2unit_conversion = {
 # Input = Unit; Output = Si;
 unit2si_conversion = {
     Unit.meter: __si_u,
-    Unit.yard: lambda v: v * 0.9144,
+    # Unit.yard: lambda v: v * 0.9144,
     Unit.inch: lambda v: v * 0.0254,
     Unit.foot: lambda v: v * 0.3048,
     Unit.kilometer: lambda v: v * 1000,
     Unit.mile: lambda v: v * 1609.34,
-    Unit.nautical_mile: lambda v: v * 1852,
+    # Unit.nautical_mile: lambda v: v * 1852,
     Unit.centimeter: lambda v: v / 100,
-    Unit.millimeter: lambda v: v / 1000,
+    # Unit.millimeter: lambda v: v / 1000,
     # Unit.second: __si_u,
     # Unit.minute: lambda v: v * 60,
     # Unit.hour: lambda v: v * 60 ** 2,
@@ -304,7 +304,7 @@ unit2si_conversion = {
     Unit.meters_per_second: __si_u,
     Unit.kilometers_per_hour: lambda v: v * 10/36,
     Unit.miles_per_hour: lambda v: v * 0.44704,
-    Unit.knots: lambda v: v * 0.514444,
+    # Unit.knots: lambda v: v * 0.514444,
     Unit.newton: __si_u,
     Unit.pound_force: lambda v: v * 4.44822,
     Unit.meters3: __si_u,
@@ -333,18 +333,18 @@ unit2si_conversion = {
 unit2alias = {
     Unit.meter: ['m', 'meter', 'meters'],
     Unit.centimeter: ['cm', 'centimeter', 'centimeters'],
-    Unit.millimeter: ['mm', 'millimeter', 'millimeters'],
-    Unit.yard: ['yd', 'yard', 'yards'],
+    # Unit.millimeter: ['mm', 'millimeter', 'millimeters'],
+    # Unit.yard: ['yd', 'yard', 'yards'],
     Unit.inch: ['inch', 'inches'],
     Unit.foot: ['ft', 'foots', 'feet', 'feets', 'foot'],
     Unit.kilometer: ['km', 'kilometer', 'kilometers'],
     Unit.mile: ['mi', 'mile', 'miles'],
-    Unit.nautical_mile: ['NMI',
-                         'nauticalmile',
-                         'nauticalmiles',
-                         'NM',
-                         'NAUTIMI'
-                         ],
+    # Unit.nautical_mile: ['NMI',
+    #                     'nauticalmile',
+    #                     'nauticalmiles',
+    #                     'NM',
+    #                     'NAUTIMI'
+    #                     ],
     # Unit.second: ['second', 'seconds', 'sec', 'secs'],
     # Unit.minute: ['min', 'minute', 'minutes', 'mins'],
     # Unit.hour: ['hr', 'hour', 'hours', 'hrs'],
@@ -357,7 +357,7 @@ unit2alias = {
                                'kmph'
                                ],
     Unit.miles_per_hour: ['mph', 'mi/h'],
-    Unit.knots: ['KN', 'kt', 'knot', 'knots'],
+    # Unit.knots: ['KN', 'kt', 'knot', 'knots'],
     Unit.newton: ['newton', 'newtons'],
     Unit.pound_force: ['lbf', 'poundforce', 'pound-force',
                        'pounds-force', 'poundsforce'
@@ -568,12 +568,19 @@ def _find_any_conversions(string) -> \
             yield (input_conv, other_conv)
 
 
-def _measurement_to_string(measurement, should_round=True):
+def _measurement_to_string(measurement: Measurement, should_round=True):
     """Produces a friendly string from a measurement."""
-    rounded = round(measurement.magnitude, 2) \
-        if should_round else measurement.magnitude
+    abs_val = abs(measurement.magnitude)
 
-    return f'{rounded:g} {measurement.alias}'
+    # If we are less than 0.001 of a unit, don't bother with it
+    # (unless it is temperature, as they are relative rather than
+    # logorithmic conversions).
+    is_temp = measurement.dimension is Dim.temperature
+    is_small = abs_val - int(abs_val) < 0.001
+    if is_small and should_round and not is_temp:
+        return f'0 {measurement.alias}'
+    else:
+        return f'{round(measurement.magnitude, 2):,.2f} {measurement.alias}'
 
 
 @neko.inject_setup
@@ -647,8 +654,9 @@ class AutoUnitConversionCog(neko.Cog):
             text=t
         )
 
-        message = await message.channel.send(embed=embed)
-        asyncio.ensure_future(self.close_button_listener(message))
+        if embed.fields:
+            message = await message.channel.send(embed=embed)
+            asyncio.ensure_future(self.close_button_listener(message))
 
     async def close_button_listener(self, msg: discord.Message):
         """
