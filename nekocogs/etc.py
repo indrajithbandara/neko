@@ -2,7 +2,10 @@
 Bunch of uncategorised commands.
 """
 import random
+import re
 import urllib.parse
+
+import asyncio
 
 import neko
 
@@ -18,11 +21,69 @@ required_records = [
 ]
 
 
+binds = {
+    re.compile(r'^/shrug\b'): '¯\_(ツ)_/¯',
+    re.compile(r'^/(table)?flip\b'): '(╯°□°）╯︵ ┻━┻',
+    re.compile(r'^/unflip\b'): '┬──┬﻿ ノ(° - °ノ)'
+}
+
+
 @neko.inject_setup
 class UncategorisedCog(neko.Cog):
 
     def __init__(self, bot: neko.NekoBot):
         self.bot = bot
+
+        # Maps a string concat of the guild and channel snowflake to user ids.
+        self.bind_cooldown_buckets = {}
+
+    async def on_message(self, msg):
+        """
+        When we get a message, we check if certain Discord-app
+        binds are at the start. If there is, we reply with that
+        bind. It is as close as I can get to actually supporting
+        the binds that you can use on desktop, on mobile.
+        """
+        if not msg.guild or msg.author.bot:
+            return
+
+        guild = msg.guild.id
+        chan = msg.channel.id
+
+        timeout_k = str(guild) + str(chan)
+        timeout_v = self.bind_cooldown_buckets.get(timeout_k)
+
+        # If the user id was mapped under that identity in the
+        # buckets, then we are on timeout, so don't bother doing
+        # anything else.
+        if timeout_v == msg.author.id:
+            return
+
+        async def callback():
+            if msg.author.id == self.bot.owner_id:
+                # Owner privileges, kek.
+                return
+
+            # Insert into the dict
+            self.bind_cooldown_buckets[timeout_k] = msg.author.id
+            # Cooldown for 30s.
+            await asyncio.sleep(30)
+            # Remove from the dict
+            # Specify None to prevent KeyError if it was already
+            # removed somehow.
+            self.bind_cooldown_buckets.pop(timeout_k, None)
+
+        # Attempt to find the bind (this returns a tuple or None if not found)
+        bind = neko.find(lambda r: r.match(msg.content), binds)
+
+        if not bind:
+            return
+        else:
+            bind = binds[bind]
+
+        # Ensure the future, but don't bother waiting.
+        asyncio.ensure_future(callback())
+        await msg.channel.send(bind)
 
     async def on_connect(self):
         """
