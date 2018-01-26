@@ -76,7 +76,7 @@ class CommandMixin(abc.ABC):
             embed = book.Page(
                 title=title,
                 description=description,
-                color=0xffbf00 if isinstance(error, Warning) else 0xff0000
+                colour=0xffbf00 if isinstance(error, Warning) else 0xff0000
             )
 
             if isinstance(error, NekoCommandError):

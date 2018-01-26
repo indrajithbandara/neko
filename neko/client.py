@@ -110,7 +110,7 @@ class HttpRequestError(RuntimeError):
         return self.response.reason
 
     def __str__(self):
-        return ' '.join('[self.status, self.reason]')
+        return ' '.join([self.status, self.reason])
 
 
 class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):

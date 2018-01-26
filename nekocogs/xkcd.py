@@ -60,7 +60,7 @@ class XkcdCog(neko.Cog):
                 if num < 0:
                     raise ValueError
 
-                url = f'https://xkcd.com/${num}/info.0.json'
+                url = f'https://xkcd.com/{num}/info.0.json'
             else:
                 url = 'https://xkcd.com/info.0.json'
 
@@ -80,13 +80,12 @@ class XkcdCog(neko.Cog):
         brief='Gets the XKCD comic for today. If you give a number, then I '
               'will try to retrieve that comic number instead.',
         usage='|327')
-    async def xkcd(self, ctx, number: int=None):
+    async def xkcd(self, ctx, number=None):
         if number == -1:
             await ctx.send('https://xkcd.com/chesscoaster/')
         elif number == 0:
             await ctx.sen('http://wiki.xkcd.com/geohashing/Main_Page')
         else:
-
             with ctx.typing():
                 comic = await self.get_comic(number)
 
@@ -100,7 +99,7 @@ class XkcdCog(neko.Cog):
                 colour=0xFFFFFF)  # XKCD white.
 
             page.set_author(
-                name='XKCD',
+                name='xkcd',
                 url='https://xkcd.com',
                 # Sue me.
                 icon_url='https://pbs.twimg.com/profile_images'

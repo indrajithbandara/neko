@@ -65,6 +65,9 @@ class SafeEmbed(embeds.Embed):
                  timestamp=EmptyEmbedField,
                  **kwargs):
 
+        if colour is EmptyEmbedField and color is not EmptyEmbedField:
+            colour = color
+
         if title != EmptyEmbedField:
             title = neko.ellipses(title, _max_title)
         if description != EmptyEmbedField:
@@ -72,7 +75,6 @@ class SafeEmbed(embeds.Embed):
         super().__init__(title=title,
                          description=description,
                          url=url,
-                         color=color,
                          colour=colour,
                          timestamp=timestamp,
                          **kwargs)
