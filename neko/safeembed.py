@@ -9,10 +9,10 @@ import discord.embeds as embeds
 import neko
 
 
-__all__ = ('SafeEmbed', 'FullEmbedError')
+__all__ = ('SafeEmbed', 'FullEmbedError', 'EmptyEmbedField')
 
 
-EmptyEmbed = embeds.EmptyEmbed
+EmptyEmbedField = embeds.EmptyEmbed
 
 # https://discordapp.com/developers/docs/resources/channel#embed-limits
 _max_title = 256
@@ -56,28 +56,38 @@ class SafeEmbed(embeds.Embed):
     the near future.
     """
     def __init__(self, *,
-                 title: str=EmptyEmbed,
-                 description: str=EmptyEmbed,
+                 title: str=EmptyEmbedField,
+                 description: str=EmptyEmbedField,
+                 color: int=EmptyEmbedField,
+                 colour: int=EmptyEmbedField,
+                 url: str=EmptyEmbedField,
+                 # TODO: find out the data type for this.
+                 timestamp=EmptyEmbedField,
                  **kwargs):
-        if title != EmptyEmbed:
+
+        if title != EmptyEmbedField:
             title = neko.ellipses(title, _max_title)
-        if description != EmptyEmbed:
+        if description != EmptyEmbedField:
             description = neko.ellipses(description, _max_desc)
-        kwargs['title'] = title
-        kwargs['description'] = description
-        super().__init__(**kwargs)
+        super().__init__(title=title,
+                         description=description,
+                         url=url,
+                         color=color,
+                         colour=colour,
+                         timestamp=timestamp,
+                         **kwargs)
 
     def __getattribute__(self, item):
         # Unless we do this in this way
         if item == 'title':
             title = super().title
-            if title != EmptyEmbed:
+            if title != EmptyEmbedField:
                 return neko.ellipses(title, _max_title)
             else:
                 return title
         elif item == 'description':
             desc = super().description
-            if desc != EmptyEmbed:
+            if desc != EmptyEmbedField:
                 return neko.ellipses(desc, _max_desc)
             else:
                 return desc
@@ -87,7 +97,7 @@ class SafeEmbed(embeds.Embed):
     # Some things are better left unsaid.
     __getattr__ = __getattribute__
 
-    def set_author(self, *, name, url=EmptyEmbed, icon_url=EmptyEmbed):
+    def set_author(self, *, name, url=EmptyEmbedField, icon_url=EmptyEmbedField):
         name = neko.ellipses(name, _max_auth_name)
         super().set_author(name=name, url=url, icon_url=icon_url)
 
@@ -96,7 +106,7 @@ class SafeEmbed(embeds.Embed):
         value = neko.ellipses(value, _max_field_cont)
         super().set_field_at(index=index, name=name, value=value, inline=inline)
 
-    def set_footer(self, *, text=EmptyEmbed, icon_url=EmptyEmbed):
+    def set_footer(self, *, text=EmptyEmbedField, icon_url=EmptyEmbedField):
         text = neko.ellipses(text, _max_footer)
         super().set_footer(text=text, icon_url=icon_url)
 
