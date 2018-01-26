@@ -68,20 +68,19 @@ class Tokens(log.Loggable):
         try:
             file = self.__token_file
             self.logger.info(f'Reading external tokens from {file}')
-            with open(file) as fp:
-                data = json.load(fp)
+            data = io.load_or_make_json('tokens.json')
 
-                if not isinstance(data, dict):
-                    raise TypeError('Expected map of names to keys.')
+            if not isinstance(data, dict):
+                raise TypeError('Expected map of names to keys.')
+            else:
+                # Ensure no duplicates of keys (case insensitive)
+                mapping = (*map(str.lower, data.keys()),)
+                if len(mapping) != len({*mapping}):
+                    raise ValueError('Duplicate keys found.')
                 else:
-                    # Ensure no duplicates of keys (case insensitive)
-                    mapping = (*map(str.lower, data.keys()),)
-                    if len(mapping) != len({*mapping}):
-                        raise ValueError('Duplicate keys found.')
-                    else:
-                        self.__tokens = {}
-                        for k, v in data.items():
-                            self.__tokens[k.lower()] = v
+                    self.__tokens = {}
+                    for k, v in data.items():
+                        self.__tokens[k.lower()] = v
 
         except FileNotFoundError:
             raise FileNotFoundError(f'Cannot find {file}') from None

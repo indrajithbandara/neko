@@ -16,7 +16,7 @@ _pwidth = 25
 
 
 # Palette options.
-_pal_colours_per_row = 5
+_pal_colours_per_row = 7
 _pal_width_per_colour = 200
 _pal_height_per_colour = 100
 _pal_backing_colour = (0, 0, 0, 0)

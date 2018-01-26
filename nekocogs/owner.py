@@ -247,7 +247,10 @@ class OwnerOnlyCog(neko.Cog):
         )
 
         for name, _cog in sorted(ctx.bot.cogs.items(), key=lambda k: k[0]):
-            file = os.path.relpath(inspect.getsourcefile(_cog.__class__))
+            try:
+                file = os.path.relpath(inspect.getsourcefile(_cog.__class__))
+            except BaseException:
+                continue
 
             line = (
                 f'**{name}** in `{_cog.__module__}` '
