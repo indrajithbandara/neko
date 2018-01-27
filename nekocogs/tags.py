@@ -2,7 +2,10 @@
 Tag implementation using PostgreSQL backend for storage and management.
 """
 import asyncio
+import base64
 import copy
+import io
+import math
 import re
 
 import discord
@@ -10,7 +13,10 @@ import discord.ext.commands as commands
 
 import neko
 
-_create_table = '''
+
+_MAX_IMAGE_SIZE = 4096 * 1024
+
+_create_main_table = '''
 -- Note, BIGINT is 64bit signed
 CREATE TABLE IF NOT EXISTS nekozilla.tags (
   pk             SERIAL         PRIMARY KEY NOT NULL UNIQUE,
@@ -39,6 +45,29 @@ CREATE TABLE IF NOT EXISTS nekozilla.tags (
   content        VARCHAR(1800)  CONSTRAINT not_whitespace_cont CHECK (
                                   TRIM(content) <> ''
                                 )
+);
+'''
+
+_create_attachment_table = '''
+CREATE TABLE IF NOT EXISTS nekozilla.tags_attach (
+  tag_pk         BIGINT         UNIQUE NOT NULL,
+  
+  -- This will tell discord how to interpret the file.
+  file_name      VARCHAR(50)    NOT NULL 
+                                CONSTRAINT not_whitespace_name CHECK (
+                                  TRIM(file_name) <> ''
+                                ),       
+                                
+  -- Base 64 uses ceil(4n/3) characters to encode n bytes.
+  b64data        TEXT           NOT NULL,
+                                
+  -- If a tag is deleted, then the reference here is also deleted
+  FOREIGN KEY (tag_pk) 
+  REFERENCES nekozilla.tags
+  ON DELETE CASCADE,
+  
+  -- We allow only one upload per tag.
+  PRIMARY KEY (tag_pk)
 );
 '''
 
@@ -77,7 +106,8 @@ class TagCog(neko.Cog):
         """
         self.logger.info('Ensuring tables exist')
         async with self.bot.postgres_pool.acquire() as conn:
-            await conn.execute(_create_table)
+            await conn.execute(_create_main_table)
+            await conn.execute(_create_attachment_table)
 
     @staticmethod
     async def _del_msg_soon(send_msg=None, resp_msg=None):
@@ -179,33 +209,44 @@ class TagCog(neko.Cog):
             await book.send()
             return
 
-        local_first = False
         if tag_name.startswith('!'):
             tag_name = tag_name[1:]
             local_first = True
+        else:
+            local_first = False
 
         async with self.bot.postgres_pool.acquire() as conn:
-            g = 'SELECT content FROM nekozilla.tags WHERE LOWER(name) = ($1) '
-            async with ctx.channel.typing():
-                if not ctx.channel.nsfw:
-                    g += 'AND is_nsfw = FALSE '
-
-                g += 'AND guild '
-
-                getter_l = g + '= ($2);'
-                getter_g = g + 'IS NULL;'
-
-                # await ctx.send('\n'.join([getter_l, getter_g]))
-
-                res_l = await conn.fetch(getter_l, tag_name, ctx.guild.id)
-                res_g = await conn.fetch(getter_g, tag_name)
-
-                results = [*res_l, *res_g] if local_first else [*res_g, *res_l]
+            with ctx.channel.typing():
+                results = await conn.fetch(
+                    '''
+                    SELECT 
+                      content,
+                      file_name,
+                      b64data
+                    FROM nekozilla.tags
+                    LEFT OUTER JOIN nekozilla.tags_attach
+                    ON pk = tag_pk
+                    WHERE
+                      name = ($1) AND
+                      (guild = ($2) OR guild IS NULL) AND 
+                      -- This will be TRUE OR FALSE -> TRUE if chan is NSFW
+                      -- and FALSE OR FALSE -> FALSE if chan is NOT NSFW.
+                      is_nsfw = (($3) OR FALSE) 
+                    ORDER BY guild NULLS LAST;
+                    ''',
+                    tag_name, ctx.guild.id, ctx.channel.nsfw)
 
             if not results:
                 raise neko.NekoCommandError('No tag found with that name.')
             else:
-                content = results.pop(0)['content']
+                first = results.pop(0 if local_first else -1)
+                content = first['content']
+                attachment_name = first['file_name']
+                attachment_data = first['b64data']
+
+                if attachment_name is not None and attachment_data is not None:
+                    # Decode attachment data.
+                    attachment_data = base64.b64decode(attachment_data)
 
                 # We allow a few dynamic bits and pieces.
                 # TODO: document this.
@@ -226,13 +267,20 @@ class TagCog(neko.Cog):
                 for replacement in replacements:
                     content = content.replace(*replacement)
 
-                await ctx.send(content)
+                if attachment_name is not None and attachment_data is not None:
+                    with io.BytesIO(initial_bytes=attachment_data) as att_bytes:
+                        att_bytes.seek(0)
+                        file = discord.File(att_bytes, filename=attachment_name)
+                        await ctx.send(content, file=file)
+                else:
+                    await ctx.send(content)
 
-    @tag_group.command(
+    @tag_group.group(
         name='inspect',
         brief='Inspects a given tag, showing who made it.',
         usage='tag_name',
-        hidden=True)
+        hidden=True,
+        invoke_without_command=True)
     @commands.is_owner()
     async def tag_inspect(self, ctx, tag_name):
         """
@@ -240,43 +288,85 @@ class TagCog(neko.Cog):
         """
         async with ctx.bot.postgres_pool.acquire() as conn:
             book = neko.Book(ctx)
-            async with ctx.typing():
+            with ctx.typing():
                 tag_name = tag_name.lower()
                 results = await conn.fetch(
-                    'SELECT * FROM nekozilla.tags WHERE LOWER(name) = ($1);',
+                    '''
+                    SELECT * FROM nekozilla.tags 
+                    LEFT JOIN nekozilla.tags_attach
+                    ON pk = tag_pk
+                    WHERE LOWER(name) = ($1);
+                    ''',
                     tag_name)
 
-                if not results:
-                    raise neko.NekoCommandError('No results.')
+            if not results:
+                raise neko.NekoCommandError('No results.')
 
-                for result in results:
-                    data = dict(result)
-                    content = data.pop('content')
-                    author = data.pop('author')
+            for result in results:
+                data = dict(result)
+                content = data.pop('content')
+                author = data.pop('author')
+                file = data.pop('file_name')
 
-                    user: discord.User = await ctx.bot.get_user_info(author)
-                    data['author'] = ' '.join([
-                        'BOT' if user.bot else '',
-                        user.display_name,
-                        str(user.id)])
+                # Don't want to send this!!!
+                data.pop('b64data')
 
-                    page = neko.Page(
-                        title=f'`{data.pop("name")}`',
-                        description=content
+                user: discord.User = await ctx.bot.get_user_info(author)
+                data['author'] = ' '.join([
+                    'BOT' if user.bot else '',
+                    user.display_name,
+                    str(user.id)])
+
+                page = neko.Page(
+                    title=f'`{data.pop("name")}`',
+                    description=content
+                )
+
+                page.set_thumbnail(url=user.avatar_url)
+
+                if file is not None:
+                    page.set_footer(text=f'Attached file: {file}')
+
+                page.add_field(
+                    name='Attributes',
+                    value='\n'.join(
+                        f'**{k}**: `{v}`' for k, v in data.items()
                     )
+                )
 
-                    page.set_thumbnail(url=user.avatar_url)
-
-                    page.add_field(
-                        name='Attributes',
-                        value='\n'.join(
-                            f'**{k}**: `{v}`' for k, v in data.items()
-                        )
-                    )
-
-                    book += page
+                book += page
 
             await book.send()
+
+    @tag_inspect.command(
+        name='image',
+        brief='Gets an image for a given tag primary key.',
+        usage='tag_pk_int',
+        hidden=True)
+    @commands.is_owner()
+    async def tag_inspect_image(self, ctx, key: int):
+        async with ctx.bot.postgres_pool.acquire() as conn:
+            with ctx.typing():
+                results = await conn.fetch(
+                    '''
+                    SELECT file_name, b64data FROM nekozilla.tags_attach
+                    WHERE tag_pk = ($1)
+                    ''', key)
+
+            if not results:
+                raise neko.NekoCommandError('No results.')
+            else:
+                first = results.pop(0)
+                attachment_name = first['file_name']
+                attachment_data = base64.b64decode(first['b64data'])
+
+                if attachment_name is not None and attachment_data is not None:
+                    with io.BytesIO(initial_bytes=attachment_data) as att_bytes:
+                        att_bytes.seek(0)
+                        file = discord.File(att_bytes, filename=attachment_name)
+                        await ctx.send(f'`{attachment_name}`', file=file)
+                else:
+                    raise RuntimeError('Unknown error. Shit is broken.')
 
     @tag_group.group(
         name='add',
@@ -284,11 +374,30 @@ class TagCog(neko.Cog):
         usage='tag_name content',
         invoke_without_command=True)
     @neko.cooldown(1, 120, neko.CooldownType.user)
-    async def tag_add(self, ctx, tag_name, *, content):
+    async def tag_add(self, ctx: neko.Context, tag_name, *, content):
         """
         Adds a local tag. The tag cannot contain spaces, and if an existing
         tag exists with the name, then we cannot add it.
         """
+        attachment = ctx.message.attachments
+
+        if ctx.author.id == self.bot.owner_id:
+            self.tag_add.reset_cooldown(ctx)
+
+        if attachment:
+            if len(attachment) > 1:
+                raise neko.NekoCommandError('Can only upload at most one file.')
+            else:
+                # Get the first attachment.
+                attachment: discord.Attachment = attachment[0]
+
+                if attachment.size > _MAX_IMAGE_SIZE:
+                    raise neko.NekoCommandError(
+                        f'You can upload a maximum of {_MAX_IMAGE_SIZE/1024} '
+                        'KiB per tag.')
+        else:
+            attachment = None
+
         tag_name = tag_name.lower()
 
         # First, make sure tag is valid.
@@ -296,32 +405,81 @@ class TagCog(neko.Cog):
             raise neko.NekoCommandError('Invalid tag name')
 
         async with self.bot.postgres_pool.acquire() as conn:
-            async with ctx.channel.typing():
-                # Next, see if the tag already exists.
-                existing = await conn.fetch(
-                    '''
-                    SELECT 1 FROM nekozilla.tags
-                    WHERE LOWER(name) = ($1) AND guild = ($2);
-                    ''',
-                    tag_name, ctx.guild.id
-                )
-                if len(existing) > 0:
-                    raise neko.NekoCommandError('Tag already exists')
+            # This is a multiple part query with a select and two inserts.
+            # Transaction usage means if something else fucks up then ALL
+            # changes made up to that point are deferred safely and the
+            # database is left in a stable state.
+            async with conn.transaction(isolation='serializable',
+                                        readonly=False,
+                                        deferrable=False):
+                with ctx.channel.typing():
+                    # Next, see if the tag already exists.
+                    existing = await conn.fetch(
+                        '''
+                        SELECT 1 FROM nekozilla.tags
+                        WHERE LOWER(name) = ($1) AND guild = ($2);
+                        ''',
+                        tag_name, ctx.guild.id
+                    )
+                    if len(existing) > 0:
+                        raise neko.NekoCommandError('Tag already exists')
 
-                await conn.execute(
-                    '''
-                    INSERT INTO nekozilla.tags 
-                        (name, author, guild, is_nsfw, content) 
-                    VALUES (($1), ($2), ($3), ($4), ($5));
-                    ''',
-                    tag_name,
-                    ctx.author.id,
-                    ctx.guild.id,
-                    ctx.channel.nsfw,
-                    content
-                )
+                    await conn.execute(
+                        '''
+                        INSERT INTO nekozilla.tags 
+                            (name, author, guild, is_nsfw, content) 
+                        VALUES (($1), ($2), ($3), ($4), ($5));
+                        ''',
+                        tag_name,
+                        ctx.author.id,
+                        ctx.guild.id,
+                        ctx.channel.nsfw,
+                        content
+                    )
 
-            await self._del_msg_soon(ctx, await ctx.send('Added.'))
+                    # If we have an attachment, we must first fetch it.
+                    if attachment is not None:
+                        resp = await self.bot.request('GET', attachment.url)
+                        data: bytes = await resp.read()
+
+                        base64_img = base64.b64encode(data)
+
+                        # Discord or Discord.py removes my bloody file extension
+                        # from the file name!!!!! REEE!
+                        url: str = attachment.url
+                        start_index = url.find(attachment.filename)
+                        self.logger.info(
+                            f'{ctx.author} uploaded {tag_name} {attachment.url}'
+                            f' in {ctx.guild}.{ctx.channel}')
+
+                        if start_index != -1:
+                            attachment.filename = url[start_index:]
+
+                        await conn.execute(
+                            '''
+                            INSERT INTO nekozilla.tags_attach
+                                (tag_pk, file_name, b64data)
+                            VALUES (
+                              (
+                                -- TODO: make this not shit.
+                                SELECT pk FROM nekozilla.tags
+                                WHERE 
+                                  name = ($1) AND 
+                                  guild = ($2) AND 
+                                  author = ($3)
+                                LIMIT 1
+                              ),
+                              ($4), ($5)
+                            );
+                            ''',
+                            tag_name,
+                            ctx.guild.id,
+                            ctx.author.id,
+                            attachment.filename,
+                            base64_img.decode()
+                        )
+
+                await self._del_msg_soon(ctx, await ctx.send('Added.'))
 
     @tag_add.command(
         name='global',
@@ -329,10 +487,29 @@ class TagCog(neko.Cog):
         usage='tag_name content',
         hidden=True)
     @commands.is_owner()
-    async def tag_add_global(self, ctx, tag_name, *, content):
+    async def tag_add_global(self, ctx: neko.Context, tag_name, *, content):
         """
         This is only currently accessible by the bot owner.
         """
+        attachment = ctx.message.attachments
+
+        if ctx.author.id == self.bot.owner_id:
+            self.tag_add.reset_cooldown(ctx)
+
+        if attachment:
+            if len(attachment) > 1:
+                raise neko.NekoCommandError('Can only upload at most one file.')
+            else:
+                # Get the first attachment.
+                attachment: discord.Attachment = attachment[0]
+
+                if attachment.size > _MAX_IMAGE_SIZE:
+                    raise neko.NekoCommandError(
+                        f'You can upload a maximum of {_MAX_IMAGE_SIZE/1024} '
+                        'KiB per tag.')
+        else:
+            attachment = None
+
         tag_name = tag_name.lower()
 
         # First, make sure tag is valid.
@@ -340,29 +517,79 @@ class TagCog(neko.Cog):
             raise neko.NekoCommandError('Invalid tag name')
 
         async with self.bot.postgres_pool.acquire() as conn:
-            async with ctx.channel.typing():
-                # Next, see if the tag already exists.
-                existing = await conn.fetch(
-                    '''
-                    SELECT 1 FROM nekozilla.tags
-                    WHERE LOWER(name) = ($1) AND guild IS NULL;
-                    ''',
-                    tag_name)
-                if len(existing) > 0:
-                    raise neko.NekoCommandError('Tag already exists')
+            # This is a multiple part query with a select and two inserts.
+            # Transaction usage means if something else fucks up then ALL
+            # changes made up to that point are deferred safely and the
+            # database is left in a stable state.
+            async with conn.transaction(isolation='serializable',
+                                        readonly=False,
+                                        deferrable=False):
+                with ctx.channel.typing():
+                    # Next, see if the tag already exists.
+                    existing = await conn.fetch(
+                        '''
+                        SELECT 1 FROM nekozilla.tags
+                        WHERE LOWER(name) = ($1) AND guild IS NULL;
+                        ''',
+                        tag_name
+                    )
+                    if len(existing) > 0:
+                        raise neko.NekoCommandError('Tag already exists')
 
-                await conn.execute(
-                    '''
-                    INSERT INTO nekozilla.tags 
-                        (name, author, is_nsfw, content)
-                    VALUES (($1), ($2), ($3), ($4))
-                    ''',
-                    tag_name,
-                    ctx.author.id,
-                    ctx.channel.nsfw,
-                    content)
+                    await conn.execute(
+                        '''
+                        INSERT INTO nekozilla.tags 
+                            (name, author, guild, is_nsfw, content) 
+                        VALUES (($1), ($2), NULL, ($3), ($4));
+                        ''',
+                        tag_name,
+                        ctx.author.id,
+                        ctx.channel.nsfw,
+                        content
+                    )
 
-            await self._del_msg_soon(ctx, await ctx.send('Added globally.'))
+                    # If we have an attachment, we must first fetch it.
+                    if attachment is not None:
+                        resp = await self.bot.request('GET', attachment.url)
+                        data: bytes = await resp.read()
+
+                        base64_img = base64.b64encode(data)
+
+                        # Discord or Discord.py removes my bloody file extension
+                        # from the file name!!!!! REEE!
+
+                        self.logger.info(
+                            f'{ctx.author} uploaded {tag_name} {attachment.url}'
+                            f' in {ctx.guild}.{ctx.channel}. It was global.')
+                        url: str = attachment.url
+                        start_index = url.find(attachment.filename)
+                        if start_index != -1:
+                            attachment.filename = url[start_index:]
+
+                        await conn.execute(
+                            '''
+                            INSERT INTO nekozilla.tags_attach
+                                (tag_pk, file_name, b64data)
+                            VALUES (
+                              (
+                                -- TODO: make this not shit.
+                                SELECT pk FROM nekozilla.tags
+                                WHERE 
+                                  name = ($1) AND
+                                  guild IS NULL AND 
+                                  author = ($2)
+                                LIMIT 1
+                              ),
+                              ($3), ($4)
+                            );
+                            ''',
+                            tag_name,
+                            ctx.author.id,
+                            attachment.filename,
+                            base64_img.decode()
+                        )
+
+                await self._del_msg_soon(ctx, await ctx.send('Added globally.'))
 
     @classmethod
     async def _delete(cls, tag_name, ctx, is_global=False):

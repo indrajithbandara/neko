@@ -5,6 +5,10 @@ Uses voodoo with embeds and reacts to make itself behave like a book.
 which means embeds are getting corrupted. This is not an issue on regular
 release versions of Discord, and it seems to be a clientside issue.
 """
+import traceback
+
+import neko
+
 __all__ = ['Button', 'Page', 'Book', 'PaginatedBook']
 
 import asyncio
@@ -340,10 +344,21 @@ class Book:
         Forces the current page to be edited to reflect the current page
         in this Book. This will not touch reactions.
         """
-        await self._msg.edit(
-            content=await self._msg_content(),
-            embed=self.page
-        )
+        try:
+            await self._msg.edit(
+                content=await self._msg_content(),
+                embed=self.page
+            )
+        except discord.HTTPException as ex:
+            traceback.print_exc()
+            await self._msg.edit(
+                content='Amazon seem to have lost your package in transit. '
+                        'Please accept this basket of sympathy oranges. '
+                        'https://thumbs.dreamstime.com/b/basket-oranges'
+                        '-12173131.jpg')
+            await self._msg.clear_reactions()
+            self._ctx.bot.last_error = neko.LastError(
+                type(ex), ex, ex.__traceback__)
 
     def decay(self):
         """

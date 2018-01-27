@@ -403,7 +403,7 @@ class NekoBot(commands.Bot, log.Loggable, metaclass=common.InitClassHookMeta):
             )
         )
 
-    async def request(self, method, url, **kwargs):
+    async def request(self, method, url, **kwargs) -> aiohttp.ClientResponse:
         """
         Performs the given HTTP request in the pool asynchronously, but
         also validates the connection properly for you. If an error occurs, then
