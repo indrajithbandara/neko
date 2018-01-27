@@ -54,13 +54,17 @@ class CommandMixin(abc.ABC):
                 commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
                 commands.CommandOnCooldown: '\N{ALARM CLOCK}',
                 commands.DisabledCommand: '\N{MOBILE PHONE OFF}',
-                discord.NotFound: '\N{COLLISION SYMBOL}',
-                discord.ClientException: '\N{FACE PALM}',
+                discord.ClientException: '\N{COLLISION SYMBOL}',
             }
 
             reaction = neko.find(lambda e: issubclass(type(error), e), reacts)
             reaction = reacts[reaction]
-            asyncio.ensure_future(ctx.message.add_reaction(reaction))
+
+            if not issubclass(type(error), discord.NotFound):
+                await ctx.message.add_reaction(reaction)
+            else:
+                pass  # ?? You cant react to something you cant react to.
+
         except KeyError:
             # If we haven't specified a reaction, we instead do something
             # meaningful.
