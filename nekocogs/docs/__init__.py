@@ -2,11 +2,12 @@
 Bunch of APIs to various language documentations, etc.
 """
 from . import cppreference
+from . import python
 
 
-cogs = {cppreference.CppReferenceCog}
+cogs = (cppreference.CppReferenceCog, python.PyDocCog)
 
 
 def setup(bot):
     for cog in cogs:
-        bot.add_cog(cog.mksetup()(bot))
+        cog.mksetup()(bot)
