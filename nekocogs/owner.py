@@ -415,8 +415,9 @@ class OwnerOnlyCog(neko.Cog):
     @command_grp.command(
         name='reset_cooldown',
         brief='Does what it says on the tin.')
-    async def reset_cooldown(self, ctx, command):
-        command = neko.find(lambda c: c.name == command or command in c.aliases,
+    async def reset_cooldown(self, ctx, *, command):
+        command = neko.find(lambda c: c.qualified_name == command
+                                      or command in c.qualified_aliases,
                             ctx.bot.walk_commands())
 
         if command:

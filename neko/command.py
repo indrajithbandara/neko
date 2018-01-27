@@ -6,6 +6,8 @@ import abc
 import traceback
 import typing
 
+import asyncio
+import discord
 import discord.ext.commands as commands
 
 import neko
@@ -47,12 +49,18 @@ class CommandMixin(abc.ABC):
 
         try:
             # For specific types of error, just react.
-            await ctx.message.add_reaction({
+            reacts = {
                 commands.CheckFailure: '\N{NO ENTRY SIGN}',
                 commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
                 commands.CommandOnCooldown: '\N{ALARM CLOCK}',
-                commands.DisabledCommand: '\N{MOBILE PHONE OFF}'
-            }[type(error)])
+                commands.DisabledCommand: '\N{MOBILE PHONE OFF}',
+                discord.NotFound: '\N{COLLISION SYMBOL}',
+                discord.ClientException: '\N{FACE PALM}',
+            }
+
+            reaction = neko.find(lambda e: issubclass(type(error), e), reacts)
+            reaction = reacts[reaction]
+            asyncio.ensure_future(ctx.message.add_reaction(reaction))
         except KeyError:
             # If we haven't specified a reaction, we instead do something
             # meaningful.
