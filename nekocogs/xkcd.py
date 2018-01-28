@@ -95,7 +95,7 @@ class XkcdCog(neko.Cog):
             page = neko.Page(
                 title=comic.title + ' #' + str(comic.num),
                 url='https://xkcd.com/' + str(comic.num),
-                description=date + '\n\n' + comic.alt
+                description=date + '\n\n' + comic.alt,
                 colour=0xFFFFFF)  # XKCD white.
 
             page.set_author(
