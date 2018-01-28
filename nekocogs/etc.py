@@ -173,6 +173,6 @@ class UncategorisedCog(neko.Cog):
         embed = neko.Page(
             title=title,
             description=f'Total: {total}',
-            color=0xEB2B36)
+            color=0x54c571)
 
         await ctx.send(embed=embed)
