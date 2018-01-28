@@ -144,7 +144,8 @@ class UncategorisedCog(neko.Cog):
         # sadly, at least I don't think.
         what = ctx.message.clean_content
         # Remove the command prefix.
-        what = what[len(ctx.invoked_with):].strip()
+        # Todo: fix so this isn't aids when I am at an IDE...
+        what = what[4:].strip()
         
         async with ctx.bot.postgres_pool.acquire() as conn:
             # Performs the increment server-side.
