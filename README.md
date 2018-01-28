@@ -3,7 +3,7 @@ A small bot for Discord servers to provide some useful fun commands and features
 
 ## What does it do?
 
-Currently, the following commands exit:
+Currently, the following commands exist:
 
 - `big`, `bigd` - returns input text in BIG LETTERS WITH COMBINING KEYCAPS.
 - `charcode` - takes a UTF-8 character code and displays info about it.
