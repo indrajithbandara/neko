@@ -24,6 +24,9 @@ Currently, the following commands exit:
     - `colour random` - displays a random colour.
     - `colour palette` - takes multiple hex and HTML colour codes and generates a
         palette of those colours, displaying it.
+
+![Colour palette example](palette.PNG)
+        
 - `cpp` - searches http://en.cppreference.com for a search term.
 - `def` - uses the Wordnik API to find definitions for words.
 - `f` - _press F to pay respects._
@@ -33,6 +36,9 @@ Currently, the following commands exit:
 - `lmgtfy`, `lmgtfyd` - takes a search term and generates a link that sends the user to
     http://lmgtfy.com to satisfy the answer to their dumb question. 
 - `mew` - displays a given reaction emote.
+
+![C++ reference](malloc.PNG)
+
 - `rtd` - rolls the dice. You can specify how many dice to roll, and how many sides the
     dice should have.
 - `rtfs` - read the fine source. This is part of a module that indexes the entire
@@ -44,6 +50,9 @@ Currently, the following commands exit:
 - `status discord` - gets some comprehensive service status info for Discord.
 - `status dota` - gives the status of Dota2 servers.
 - `status steam` - gets the status of vital Steam services.
+
+![Where is the International Space Station?](iss.PNG)
+
 - `status tf2` - gets the status of Team Fortress 2 services.
 - `sudo` - owner-only commands for bot management.
     - `health` - gives info on resource usage for the bot process.
