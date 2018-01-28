@@ -142,7 +142,7 @@ class UncategorisedCog(neko.Cog):
     async def pay_respects(self, ctx, *, _unused_what):
         # Filters out mention syntax. We cant do this from ctx directly
         # sadly, at least I don't think.
-        what = ctx.message.clean_content()
+        what = ctx.message.clean_content
         # Remove the command prefix.
         what = what[len(ctx.invoked_with):].strip()
         
