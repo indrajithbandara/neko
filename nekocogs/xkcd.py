@@ -93,8 +93,8 @@ class XkcdCog(neko.Cog):
             date += f' {months[int(comic.month) - 1]} {comic.year}'
 
             page = neko.Page(
-                title=comic.title,
-                url=comic.link if comic.link else neko.EmptyEmbedField,
+                title=comic.title + ' #' + str(comic.num),
+                url='https://xkcd.com/' + str(comic.num),
                 description=date,
                 colour=0xFFFFFF)  # XKCD white.
 
@@ -105,8 +105,9 @@ class XkcdCog(neko.Cog):
                 icon_url='https://pbs.twimg.com/profile_images'
                          '/602808103281692673/8lIim6cB_400x400.png')
 
-            page.set_footer(
-                text=comic.alt)
+            page.add_field(
+                name='...',
+                value=comic.alt)
 
             page.set_image(url=comic.img)
 
