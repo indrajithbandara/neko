@@ -108,6 +108,9 @@ Currently, the following commands exit:
     metric and imperial measurements of speed/distance/weight, and for 
     fahrenheit/celcius/kelvin measurements. This is fully automated, and the output
     can be dismissed by anyone if it is intrusive.
+    
+![Example of unit conversion](conv.png)    
+    
 - The bot displays periodically a random command that can be run in it's status,
     prompting users to try it out.
 - If a user on mobile tries to use the `/shrug`, `/tableflip` or `/unflip` macros
