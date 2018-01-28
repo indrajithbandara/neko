@@ -139,7 +139,13 @@ class UncategorisedCog(neko.Cog):
         name='f',
         usage='|<what>',
         brief='Press F to pay your respects.')
-    async def pay_respects(self, ctx, *, what=None):
+    async def pay_respects(self, ctx, *, _unused_what):
+        # Filters out mention syntax. We cant do this from ctx directly
+        # sadly, at least I don't think.
+        what = ctx.message.clean_content()
+        # Remove the command prefix.
+        what = what[len(ctx.invoked_with):].strip()
+        
         async with ctx.bot.postgres_pool.acquire() as conn:
             # Performs the increment server-side.
             await conn.execute(
