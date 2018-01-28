@@ -139,7 +139,7 @@ class UncategorisedCog(neko.Cog):
         name='f',
         usage='|<what>',
         brief='Press F to pay your respects.')
-    async def pay_respects(self, ctx, *, _unused_what):
+    async def pay_respects(self, ctx, *, _unused_what=None):
         # Filters out mention syntax. We cant do this from ctx directly
         # sadly, at least I don't think.
         what = ctx.message.clean_content
