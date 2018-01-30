@@ -22,7 +22,7 @@ class PwnedCog(neko.Cog):
               'have had your account details leaked online. Results '
               'are sent via DMs to you for privacy.',
         usage='username')
-    async def have_i_been_pwned(self, ctx, username):
+    async def have_i_been_pwned(self, ctx, *, username):
         """This command will also work in DMs directly."""
         try:
             await ctx.message.delete()
@@ -83,3 +83,5 @@ class PwnedCog(neko.Cog):
 
         for page in pag.pages:
             await ctx.author.send(page)
+
+        await ctx.send('https://haveibeenpwned.com')

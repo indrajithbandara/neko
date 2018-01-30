@@ -94,15 +94,13 @@ class Book:
         'buttons',  # Collection of buttons.
         '_ctx',  # The context to reply to.
         '_msg',  # The message containing the current page. This is set on send.
-        'timeout',  # How long to idle for before destroying pagination.
-        'reply_as_dm'  # If true, DM author instead.
+        'timeout'  # How long to idle for before destroying pagination.
     )
 
     def __init__(self,
                  ctx: commands.Context,
                  timeout: float = 120,
-                 buttons: typing.Iterable = None,
-                 reply_as_dm = False):
+                 buttons: typing.Iterable = None):
         """
         Initialises the pages.
         :param ctx: the message context we are replying to.
@@ -113,7 +111,6 @@ class Book:
         """
         self.pages = []
         self._page_index = 0
-        self.reply_as_dm = reply_as_dm
 
         if timeout <= 0:
             raise ValueError('Timeout must be positive and nonzero.')
@@ -292,10 +289,7 @@ class Book:
     async def _send_loop(self):
         # If no page has been shown yet, send a placeholder message.
         if not hasattr(self, '_msg') or self._msg is None:
-            if self.reply_as_dm:
-                msg = await self._ctx.author.send('Loading response...')
-            else:
-                msg = await self._ctx.send('Loading repsonse...')
+            msg = await self._ctx.send('Loading pagination...')
             setattr(self, '_msg', msg)
 
             ensure_future(self._reset_buttons())
@@ -510,13 +504,12 @@ class PaginatedBook(Book):
                  max_size=1990,
                  max_lines=None,
                  ctx: commands.Context,
-                 title: str,
-                 reply_in_dms=False):
+                 title: str):
 
         if max_lines is not None and max_lines < 1:
             raise ValueError('Cannot set maxlines to be less than 1.')
 
-        super().__init__(ctx, reply_as_dm=reply_in_dms)
+        super().__init__(ctx)
         self.paginator = commands.Paginator(prefix, suffix, max_size)
         self.title = title
         self.max_lines = max_lines
