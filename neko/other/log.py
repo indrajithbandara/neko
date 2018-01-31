@@ -1,10 +1,9 @@
-import abc
 import logging
 
 __all__ = ['Loggable', 'with_verbosity', 'get_logger', 'as_level']
 
 
-class Loggable(abc.ABC):
+class Loggable:
     """
     Injects a logger into the inheriting class definition under the
     "logger" attribute.
@@ -14,6 +13,11 @@ class Loggable(abc.ABC):
 
     def __init_subclass__(cls, **__):
         """Injects the logger into the definition of the subclass."""
+        if cls == Loggable:
+            # Had to do this as implementing ABC messes up subclasses with
+            # other metaclasses injected.
+            raise RuntimeError('Cannot directly initialise Loggable.')
+
         cls.logger = logging.getLogger(cls.__qualname__)
 
     @staticmethod

@@ -17,11 +17,13 @@ import neko
 import neko.other.log as log
 
 
-is_debug = True
+is_debug = False
 
 
 class ShutdownHookConnection(asyncpg.Connection):
+    # Todo: implement for fetchrow, fetchval.
     # Seems asyncpg complains if I inherit loggable.
+
     logger = log.get_logger(__file__)
     logger.setLevel('INFO' if not is_debug else 'DEBUG')
 

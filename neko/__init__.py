@@ -10,12 +10,14 @@ Plus... NEKO!!! >'^w^<
 
 # Expects each file to have __all__ defined
 from .book import *
-from .client import NekoBot
+from .client import *
 from .cog import *
 from .command import *
 from .common import *
 from .io import *
+from .safeembed import *
 from .strings import *
+from .deque import *
 
 
 # These are useful to have in the namespace.
@@ -23,6 +25,7 @@ from .strings import *
 import discord.ext.commands.converter
 converters = discord.ext.commands.converter
 
+Message = discord.Message
 Paginator = discord.ext.commands.Paginator
 Context = discord.ext.commands.Context
 GroupMixin = discord.ext.commands.GroupMixin
@@ -33,16 +36,28 @@ CooldownType = discord.ext.commands.BucketType
 
 
 __all__ = [
-    'NekoBot'
+    'NekoBot',
+    'LastError'
 ]
 
+
+def _year():
+    import datetime
+    # In case some smart-arse sets their system clock back.
+    return min(datetime.datetime.utcnow().year, 2018)
+
+
+# Double quote strings to omit them from setup.py
 __author__ = 'Espeonageon'
 __license__ = 'MIT'
-__copyright__ = f'Copyright 2017-2018 {__author__}'
+__copyright__ = f'Copyright 2017-{_year()} {__author__}'
 __contributors__ = ['Espeonageon', 'Zcissors']
-__version__ = '2018-Jan-18.2'
+__thanks__ = ('Rotom, Smidgey, Purrloin, Bambi and Hal0 for putting up with '
+              'my constant yammering on about code, bugs, libraries, APIs, '
+              'problems, solutions, queries, Python, SQL, JSON, ..., ..., '
+              'you name it.\n\nAlso, thank you for putting up with my spam '
+              'from testing. You guys are awesome!')
+__version__ = '2018-Jan-31-2-rc'
 __title__ = 'Nekozilla'
 __repo_name__ = 'neko'
 __repository__ = f'https://github.com/{__author__}/{__repo_name__}'
-
-

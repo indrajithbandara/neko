@@ -9,8 +9,8 @@ import neko
 @neko.inject_setup
 class RngCog(neko.Cog):
     @neko.command(
-        name='coinflip',
-        aliases=['toss', 'flip', 'pick', 'choose'],
+        name='toss',
+        aliases=['flip', 'pick', 'choose', 'coinflip'],
         brief='Flips a coin, or picks from a set of given values...',
         usage='|option1 option2|csgo portal "team fortress 2"')
     async def toss(self, ctx, *, args=None):

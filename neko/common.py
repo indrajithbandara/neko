@@ -1,6 +1,7 @@
 """
 Contains common helper methods and definitions
 """
+import abc
 import asyncio
 import inspect
 import random
@@ -12,6 +13,7 @@ from neko import strings
 __all__ = [
     'find', 'async_find', 'get_or_die', 'is_coroutine', 'python_extensions',
     'random_color', 'random_colour', 'between', 'json_types',
+    'InitClassHookMeta'
 ]
 
 # Valid file extensions for python scripts, compiled binaries, archives,
@@ -117,7 +119,9 @@ def is_coroutine(coro):
 
 def random_colour(bits=24):
     """Returns a random 24-bit colour hex value."""
-    return random.randint(0, (2 ** bits) - 1)
+    # For 24 bits, 1 << 24 == 0x1000000
+    # 0x1000000 - 1 = 0xFFFFFF.
+    return random.randint(0, (1 << bits) - 1)
 
 
 # MAKE AMERICA GREAT AGAIN
@@ -137,3 +141,18 @@ def between(start: int, stop: int, step: int=1):
     :return: a range object.
     """
     return range(start, stop + 1, step)
+
+
+class InitClassHookMeta(abc.ABC, type):
+    """
+    Adds a piece of code to call a method called __init_class__ if it exists.
+
+    This works just as __init__ does, but on a class basis, and just the once.
+    """
+    def __init_subclass__(mcs, **kwargs):
+        on_init = getattr(mcs, '__init_class__')
+        on_init(mcs)
+
+    @classmethod
+    def __init_class__(mcs, *_, **__):
+        pass

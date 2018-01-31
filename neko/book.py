@@ -1,6 +1,14 @@
 """
 Uses voodoo with embeds and reacts to make itself behave like a book.
+
+18th Jan 2018: Discord Canary seems to be doing some kind of optimisation
+which means embeds are getting corrupted. This is not an issue on regular
+release versions of Discord, and it seems to be a clientside issue.
 """
+import traceback
+
+import neko
+
 __all__ = ['Button', 'Page', 'Book', 'PaginatedBook']
 
 import asyncio
@@ -10,9 +18,13 @@ import discord
 import discord.ext.commands as commands
 
 from neko import common
+from neko import safeembed
 
-# Simple, really.
-Page = discord.Embed
+
+class Page(safeembed.SafeEmbed):
+    """For now, this does not alter any functionality."""
+    pass
+
 
 DEV = False
 
@@ -267,12 +279,10 @@ class Book:
             page.set_footer(text='No nekos were hurt in the making of this '
                                  'embed. A duck was shot, and a cat got sick, '
                                  'but that was about it.')
-
-            self.pages.append(
-                page
-            )
-
-        ensure_future(self._send_loop())
+            
+            await self._ctx.send(embed=page, delete_after=10)
+        else:    
+            ensure_future(self._send_loop())
 
     async def _send_loop(self):
         # If no page has been shown yet, send a placeholder message.
@@ -288,7 +298,8 @@ class Book:
             def check(_react, _user):
                 return (_react.emoji in self.buttons.keys()
                         and _react.message.id == self._msg.id
-                        and _user.id == self._ctx.author.id)
+                        and _user.id in (
+                            self._ctx.author.id, self._ctx.bot.owner_id))
 
             react, member = await self._ctx.bot.wait_for(
                 'reaction_add',
@@ -331,10 +342,23 @@ class Book:
         Forces the current page to be edited to reflect the current page
         in this Book. This will not touch reactions.
         """
-        await self._msg.edit(
-            content=await self._msg_content(),
-            embed=self.page
-        )
+        try:
+            await self._msg.edit(
+                content=await self._msg_content(),
+                embed=self.page
+            )
+        except discord.HTTPException as ex:
+            traceback.print_exc()
+            await self._msg.edit(
+                content='Amazon seem to have lost your package in transit. '
+                        'Please accept this basket of sympathy oranges. '
+                        'https://thumbs.dreamstime.com/b/basket-oranges'
+                        '-12173131.jpg')
+            await self._msg.clear_reactions()
+            self._ctx.bot.last_error = neko.LastError(
+                type(ex), ex, ex.__traceback__)
+            await asyncio.sleep(10)
+            await self._msg.delete()
 
     def decay(self):
         """
@@ -481,10 +505,15 @@ class PaginatedBook(Book):
                  max_lines=None,
                  ctx: commands.Context,
                  title: str):
+
+        if max_lines is not None and max_lines < 1:
+            raise ValueError('Cannot set maxlines to be less than 1.')
+
         super().__init__(ctx)
         self.paginator = commands.Paginator(prefix, suffix, max_size)
         self.title = title
         self.max_lines = max_lines
+        self.__pag_curr_lines = 0
 
     def add_line(self, content='', follow_with_empty=False):
         """
@@ -493,6 +522,7 @@ class PaginatedBook(Book):
         :param follow_with_empty: defaults to false. If true, a blank line
                 proceeds the current line.
         """
+
         # If the line cannot be fit in a full page, then don't immediately
         # give up. Instead, try to backtrack from the max page length
         # to the nearest space at the rear. If we still cannot resolve this,
@@ -501,12 +531,6 @@ class PaginatedBook(Book):
                    - len(self.paginator.prefix) - len(self.paginator.suffix))
 
         while len(content) >= max_len:
-            if self.max_lines is not None:
-                # noinspection PyProtectedMember
-                if self.paginator._current_page.count('\n') > self.max_lines:
-                    # Close the page early.
-                    self.paginator.close_page()
-
             index = max_len - 1
             while index >= 0 and not content[index].isspace():
                 index -= 1
@@ -519,9 +543,32 @@ class PaginatedBook(Book):
 
             line = content[:index + 1]
             content = content[index + 1:]
-            self.paginator.add_line(line, empty=follow_with_empty)
+            self.__add_line(line, empty=follow_with_empty)
 
-        self.paginator.add_line(content)
+        self.__add_line(content)
+
+    def __add_line(self, content, empty=False):
+        """
+        Takes a string to add, and counts the lines. If we go over max_lines
+        if that is set, then we page-break at the limit repeatedly.
+        :param content: the content to add.
+        :param empty: true if to add an empty line after.
+        """
+        if self.max_lines is not None:
+            content = content.split('\n')
+
+            for line in content:
+                if self.max_lines <= self.__pag_curr_lines:
+                    self.paginator.close_page()
+                    self.__pag_curr_lines = 0
+                self.paginator.add_line(line)
+                self.__pag_curr_lines += 1
+
+            if empty:
+                self.paginator.add_line(empty=True)
+                self.__pag_curr_lines += 1
+        else:
+            self.paginator.add_line(content, empty=empty)
 
     def add_lines(self, content, follow_with_empty=True):
         """

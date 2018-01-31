@@ -10,7 +10,7 @@ import atexit
 __all__ = ['Singleton', 'singleton']
 
 
-class Singleton(abc.ABC):
+class Singleton:
     """
     Singleton base class implementation.
 
@@ -44,12 +44,9 @@ class Singleton(abc.ABC):
         pass
 
 
-def singleton(cls: type) -> type:
+def singleton(cls: type) -> object:
     """Handy little decorator to hack-force implement Singleton onto a class."""
+    class _SingletonSingleton(Singleton, cls):
+        pass
 
-    t = type(cls.__name__, (cls, Singleton), {
-        '__new__': Singleton.__new__,
-        'on_exit': Singleton.on_exit,
-    })
-
-    return t
+    return _SingletonSingleton()

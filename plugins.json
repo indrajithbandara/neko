@@ -1,12 +1,19 @@
 [
-  "nekocogs.unitconversion",
+  "nekocogs.activity",
+  "nekocogs.colours",
+  "nekocogs.conv",
+  "nekocogs.define",
+  "nekocogs.docs",
+  "nekocogs.etc",
+  "nekocogs.help",
+  "nekocogs.isitdown",
   "nekocogs.letters",
-  "nekocogs.apistatus",
-  "nekocogs.dictionaries",
+  "nekocogs.mew",
+  "nekocogs.owner",
+  "nekocogs.pwn",
   "nekocogs.rng",
-  "nekocogs.mewreacts",
-  "nekocogs.environment",
   "nekocogs.space",
-  "nekocogs.uncategorised",
-  "nekocogs.tags"
+  "nekocogs.src",
+  "nekocogs.tags",
+  "nekocogs.xkcd"
 ]

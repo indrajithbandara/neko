@@ -77,7 +77,14 @@ def _unicode_table(characters):
         '__**`##  Ct    UTF-CODE DESCRIPTION`**__']
 
     for i, char in enumerate(characters):
-        name = unicodedata.name(char)
+        if ord(char) == 0x0A:
+            # Unsure as to why this is not specified
+            name = 'LINE FEED (LF)'
+        else:
+            try:
+                name = unicodedata.name(char)
+            except ValueError:
+                name = '???'
         category = unicodedata.category(char)
         decimal = ord(char)
         hexd = f'U+{hex(decimal)[2:]}'

@@ -6,8 +6,11 @@ import abc
 import traceback
 import typing
 
+import asyncio
+import discord
 import discord.ext.commands as commands
 
+import neko
 from neko import book, strings
 from neko.other import excuses
 
@@ -39,16 +42,29 @@ class CommandMixin(abc.ABC):
         fq_names.extend(self.qualified_aliases)
         return fq_names
 
-    @staticmethod
-    async def on_error(cog, ctx: commands.Context, error):
+    @classmethod
+    async def on_error(cls, cog, ctx: commands.Context, error):
         """Handles any errors that may occur in a command."""
+        ctx.bot.last_error = (type(error), error, error.__traceback__)
+
         try:
             # For specific types of error, just react.
-            await ctx.message.add_reaction({
+            reacts = {
                 commands.CheckFailure: '\N{NO ENTRY SIGN}',
                 commands.MissingRequiredArgument: '\N{THOUGHT BALLOON}',
                 commands.CommandOnCooldown: '\N{ALARM CLOCK}',
-            }[type(error)])
+                commands.DisabledCommand: '\N{MOBILE PHONE OFF}',
+                discord.ClientException: '\N{COLLISION SYMBOL}',
+            }
+
+            reaction = neko.find(lambda e: issubclass(type(error), e), reacts)
+            reaction = reacts[reaction]
+
+            if not issubclass(type(error), discord.NotFound):
+                await ctx.message.add_reaction(reaction)
+            else:
+                pass  # ?? You cant react to something you cant react to.
+
         except KeyError:
             # If we haven't specified a reaction, we instead do something
             # meaningful.
@@ -56,23 +72,27 @@ class CommandMixin(abc.ABC):
 
             if not isinstance(error, NotImplementedError):
                 if isinstance(error, Warning):
-                    title = str(error)
+                    title = f'\N{WARNING SIGN} {error}'
                 else:
-                    title = 'Whoops! Something went wrong!'
+                    title = '\N{SQUARED SOS} Oh crap...'
+
                 description = strings.capitalise(excuses.get_excuse())
             else:
-                title = 'Road under construction. Follow diversion.'
+                title = (
+                    '\N{NO PEDESTRIANS} '
+                    'Road under construction. Follow diversion.')
+
                 description = ('Seems this feature isn\'t finished! Hassle '
                                'Espy to get on it. ')
 
             embed = book.Page(
                 title=title,
                 description=description,
-                color=0xffbf00 if isinstance(error, Warning) else 0xff0000
+                colour=0xffbf00 if isinstance(error, Warning) else 0xff0000
             )
 
             if isinstance(error, NekoCommandError):
-                embed.set_footer(text=str(error))
+                pass
             elif not isinstance(error, Warning):
                 # We only show info like the cog name, etc if we are not a
                 # neko command error. Likewise, we only dump a traceback if the
@@ -95,14 +115,44 @@ class CommandMixin(abc.ABC):
                     error.__traceback__
                 )
 
-            await ctx.send(embed=embed)
+            resp = await ctx.send(embed=embed)
+            await asyncio.sleep(10)
+            if isinstance(error, NekoCommandError):
+                await resp.delete()
+                return
+            elif isinstance(error, Warning):
+                await resp.edit(content='_Warnings were generated._')
+            else:
+                await resp.edit(content='_**Errors** were generated._')
+
+            async def del_in_10():
+                await asyncio.sleep(10 * 60)
+                try:
+                    await resp.delete()
+                finally:
+                    return
+
+            asyncio.ensure_future(del_in_10)
 
 
 class NekoCommand(commands.Command, CommandMixin):
     """
     Implementation of a command.
     """
-    pass
+    async def can_run(self, ctx):
+        """
+        Determine whether the command is runnable by the given context.
+
+        This overrides the built in functionality by ensuring that
+        checks such as ``discord.ext.commands.is_owner()`` do not raise an
+        unhandled exception when failing. If an exception is raised, we just
+        defer to ``False.``
+        """
+        try:
+            # noinspection PyUnresolvedReferences
+            return await super().can_run(ctx)
+        except commands.CommandError:
+            return False
 
 
 class NekoGroup(commands.Group, CommandMixin, commands.GroupMixin):
@@ -117,6 +167,21 @@ class NekoGroup(commands.Group, CommandMixin, commands.GroupMixin):
     def group(self, **kwargs):
         kwargs.setdefault('cls', NekoGroup)
         return super().command(**kwargs)
+
+    async def can_run(self, ctx):
+        """
+        Determine whether the command is runnable by the given context.
+
+        This overrides the built in functionality by ensuring that
+        checks such as ``discord.ext.commands.is_owner()`` do not raise an
+        unhandled exception when failing. If an exception is raised, we just
+        defer to ``False.``
+        """
+        try:
+            # noinspection PyUnresolvedReferences
+            return await super().can_run(ctx)
+        except commands.CommandError:
+            return False
 
 
 # noinspection PyShadowingBuiltins
