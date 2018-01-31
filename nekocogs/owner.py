@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import traceback
+import typing
 
 import neko
 import neko.other.excuses as excuses
@@ -437,7 +438,7 @@ class OwnerOnlyCog(neko.Cog):
             await ctx.send('Couldn\'t find that command.')
 
     @command_grp.command(brief='Raises a fake chain of exceptions.')
-    async def test_raise(self, ctx, number=None):
+    async def test_raise(self, ctx, number=None) -> typing.NoReturn:
         """Optional first parameter = number of errors/warnings to chain."""
         number = int(number) if number else 5
 
@@ -463,7 +464,4 @@ class OwnerOnlyCog(neko.Cog):
 
         await ctx.send('Now breaking myself \N{CRYING FACE}')
 
-        try:
-            raiser(number - 1)
-        except BaseException:
-            raise neko.NekoCommandError('Success! I broke.')
+        raiser(number - 1)
