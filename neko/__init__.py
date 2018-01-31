@@ -57,7 +57,7 @@ __thanks__ = ('Rotom, Smidgey, Purrloin, Bambi and Hal0 for putting up with '
               'problems, solutions, queries, Python, SQL, JSON, ..., ..., '
               'you name it.\n\nAlso, thank you for putting up with my spam '
               'from testing. You guys are awesome!')
-__version__ = '2018-Jan-30-2'
+__version__ = '2018-Jan-31-1-rc'
 __title__ = 'Nekozilla'
 __repo_name__ = 'neko'
 __repository__ = f'https://github.com/{__author__}/{__repo_name__}'
