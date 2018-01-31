@@ -279,12 +279,10 @@ class Book:
             page.set_footer(text='No nekos were hurt in the making of this '
                                  'embed. A duck was shot, and a cat got sick, '
                                  'but that was about it.')
-
-            self.pages.append(
-                page
-            )
-
-        ensure_future(self._send_loop())
+            
+            await self._ctx.send(embed=page, delete_after=10)
+        else:    
+            ensure_future(self._send_loop())
 
     async def _send_loop(self):
         # If no page has been shown yet, send a placeholder message.
@@ -359,6 +357,8 @@ class Book:
             await self._msg.clear_reactions()
             self._ctx.bot.last_error = neko.LastError(
                 type(ex), ex, ex.__traceback__)
+            await asyncio.sleep(10)
+            await self._msg.delete()
 
     def decay(self):
         """

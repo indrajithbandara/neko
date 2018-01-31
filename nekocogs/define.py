@@ -85,7 +85,7 @@ class DictionaryCog(neko.Cog):
         # imho.
         # Fixes #9
         if not words:
-            await ctx.send('I couldn\'t find a definition for that.')
+            await ctx.send('I couldn\'t find a definition for that.', delete_after=10)
         else:
 
             front = []
@@ -271,6 +271,6 @@ class DictionaryCog(neko.Cog):
         if book.pages:
             await book.send()
         else:
-            await ctx.send('I couldn\'t find a definition for that.')
+            await ctx.send('I couldn\'t find a definition for that.', delete_after=10)
 
 
