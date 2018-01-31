@@ -95,10 +95,10 @@ class ReadTheSourceCog(neko.Cog):
         """
         if not self.is_ready:
             await ctx.send('Hang on! I am still warming up. Give it a minute '
-                           'and try again!')
+                           'and try again!', delete_after=10)
         elif element_name not in self.index:
             await ctx.send('I can\'t find the file you want. Try searching at '
-                           + neko.__repository__)
+                           + neko.__repository__, delete_after=30)
         else:
             await ctx.send(self.index[element_name])
 

@@ -184,8 +184,17 @@ class OwnerOnlyCog(neko.Cog):
               'determine if the bot is still running or not.'
     )
     async def ping(self, ctx):
-        await ctx.send('Pong.', delete_after=5)
-        await ctx.message.delete()
+        resp = await ctx.send('Pong.')
+        try:
+            for _ in range(0, 10)
+                await asyncio.sleep(2)
+                await resp.edit(
+                    content=f'Latency: {ctx.bot.latency * 1000:.2f}ms'
+                )
+            await asyncio.sleep(10)
+            await resp.delete()
+        finally:
+            return
 
     @command_grp.command(
         aliases=['health'],

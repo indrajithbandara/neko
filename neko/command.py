@@ -115,7 +115,24 @@ class CommandMixin(abc.ABC):
                     error.__traceback__
                 )
 
-            await ctx.send(embed=embed)
+            resp = await ctx.send(embed=embed)
+            await asyncio.sleep(10)
+            if isinstance(error, NekoCommandError):
+                await resp.delete()
+                return
+            elif isinstance(error, Warning):
+                await resp.edit(content='_Warnings were generated._')
+            else:
+                await resp.edit(content='_**Errors** were generated._')
+
+            async def del_in_10():
+                await asyncio.sleep(10 * 60)
+                try:
+                    await resp.delete()
+                finally:
+                    return
+
+            asyncio.ensure_future(del_in_10)
 
 
 class NekoCommand(commands.Command, CommandMixin):

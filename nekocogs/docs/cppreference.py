@@ -175,4 +175,7 @@ class CppReferenceCog(neko.Cog):
                     book += curr_page
                     curr_page = None
 
-        await book.send()
+        if not len(book):
+            await ctx.send('No results', delete_after=10)
+        else:
+            await book.send()

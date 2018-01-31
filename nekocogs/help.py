@@ -94,7 +94,8 @@ class HelpCog(neko.Cog):
 
         # Set the page
         if page_index is None and query:
-            await ctx.send(f'I could not find a command called {query}!')
+            await ctx.send(f'I could not find a command called {query}!',
+                delete_after=10)
         else:
             if page_index is None:
                 page_index = 0
