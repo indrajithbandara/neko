@@ -186,7 +186,7 @@ class OwnerOnlyCog(neko.Cog):
     async def ping(self, ctx):
         resp = await ctx.send('Pong.')
         try:
-            for _ in range(0, 10)
+            for _ in range(0, 10):
                 await asyncio.sleep(2)
                 await resp.edit(
                     content=f'Latency: {ctx.bot.latency * 1000:.2f}ms'
