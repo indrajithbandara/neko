@@ -49,7 +49,8 @@ class Coliru(neko.Cog):
                 data=json.dumps({ 'cmd': 'g++ main.cpp && ./a.out', 'src': code })
             )
 
-        await ctx.send(await response.text())
+        resp = await response.text()
+        await ctx.send(f'```\n{resp[:1990]}\n```')
 
 
 class CppReferenceCog(neko.Cog):
