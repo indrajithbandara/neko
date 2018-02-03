@@ -8,6 +8,7 @@ Using regex because if I am going to go at this with a hammer, might as well
 do a bloody good job of it.
 """
 import collections
+import json
 import re
 import typing
 
@@ -24,6 +25,31 @@ search_ep = host + '/mwiki/index.php'
 
 
 SearchResult = collections.namedtuple('SearchResult', 'name desc url')
+
+
+
+class Coliru(neko.Cog):
+    def __init__(self, bot: neko.NekoBot):
+        self.bot = bot
+
+    @neko.command(brief='Executes C++ code.', usage='```cpp\n// code here\n```')
+    async def coliru(self, ctx, *, code):
+        if code.startswith('```cpp'):
+            code = code[6:]
+        elif code.startswith('```c'):
+            code = code[4:]
+
+        if code.endswith('```'):
+            code = code[:-3]
+
+        with ctx.typing():
+            response = await self.bot.request(
+                'POST',
+                'http://coliru.stacked-crooked.com/compile',
+                data=json.dumps({ 'cmd': 'g++ main.cpp && ./a.out', 'src': code })
+            )
+
+        await ctx.send(await response.text())
 
 
 class CppReferenceCog(neko.Cog):

@@ -5,7 +5,7 @@ from . import cppreference
 from . import python
 
 
-cogs = (cppreference.CppReferenceCog, python.PyDocCog)
+cogs = (cppreference.CppReferenceCog, python.PyDocCog, cppreference.Coliru)
 
 
 def setup(bot):
