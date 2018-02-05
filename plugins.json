@@ -5,6 +5,7 @@
   "nekocogs.define",
   "nekocogs.docs",
   "nekocogs.etc",
+  "nekocogs.greeter",
   "nekocogs.help",
   "nekocogs.isitdown",
   "nekocogs.letters",
